@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User management | InfoMan</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f7fc;
+        --panel: #ffffff;
+        --primary: #2f6fed;
+        --primary-dark: #1a4ec2;
+        --text: #1f2937;
+        --muted: #64748b;
+        --border: #dce4ef;
+        --success: #087c55;
+        --danger: #b42318;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px max(24px, calc((100% - 1120px) / 2));
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      header a { color: var(--primary); font-weight: 700; text-decoration: none; }
+      .header-links { display: flex; align-items: center; gap: 18px; }
+      main { width: min(1120px, calc(100% - 32px)); margin: 36px auto; }
+      .heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 4vw, 2.2rem); }
+      h2 { margin: 0 0 18px; font-size: 1.15rem; }
+      p { color: var(--muted); }
+      .heading p { margin: 0; }
+      .layout { display: grid; grid-template-columns: minmax(260px, 330px) minmax(0, 1fr); gap: 20px; align-items: start; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(31, 41, 55, 0.04);
+        padding: 22px;
+      }
+      form { display: flex; flex-direction: column; gap: 14px; }
+      label { display: flex; flex-direction: column; gap: 7px; font-size: 0.92rem; font-weight: 700; }
+      input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 11px 12px;
+        font: inherit;
+        font-weight: 400;
+      }
+      input:focus { outline: 2px solid rgba(47, 111, 237, 0.16); border-color: var(--primary); }
+      button {
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 14px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:hover { background: var(--primary-dark); }
+      button.secondary { background: #e9eef6; color: var(--text); }
+      button.secondary:hover { background: #dce4ef; }
+      button.danger { background: #fff0ef; color: var(--danger); }
+      button.danger:hover { background: #ffe0dd; }
+      button:disabled { cursor: not-allowed; opacity: 0.55; }
+      .form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .status { display: none; margin: 0 0 16px; padding: 12px 14px; border-radius: 9px; font-weight: 600; }
+      .status.visible { display: block; }
+      .status.success { background: #e9f8f1; color: var(--success); }
+      .status.error { background: #fff0ef; color: var(--danger); }
+      .table-tools { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .table-tools input { max-width: 320px; }
+      .count { margin-left: auto; color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; text-align: left; }
+      th, td { padding: 13px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+      th { color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+      td { font-size: 0.92rem; }
+      .user-name { font-weight: 700; }
+      .user-email { display: block; margin-top: 4px; color: var(--muted); font-size: 0.84rem; }
+      .badge { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #eef2f8; color: #46556b; font-size: 0.78rem; font-weight: 700; text-transform: capitalize; }
+      .badge.blocked { background: #fff0ef; color: var(--danger); }
+      .badge.admin { background: #edf3ff; color: #274c9b; }
+      .actions { display: flex; gap: 7px; white-space: nowrap; }
+      .actions button { padding: 8px 10px; font-size: 0.82rem; }
+      .empty { padding: 24px 10px; color: var(--muted); text-align: center; }
+      .access-card { max-width: 540px; margin: 10vh auto; text-align: center; }
+      dialog {
+        width: min(680px, calc(100% - 32px));
+        max-height: 85vh;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px;
+        color: var(--text);
+      }
+      dialog::backdrop { background: rgba(15, 23, 42, 0.48); }
+      .rights-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+      .rights-module { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+      .rights-module h3 { margin: 0 0 10px; font-size: 1rem; }
+      .rights-action { display: flex; flex-direction: row; align-items: center; gap: 9px; margin: 9px 0; font-weight: 400; }
+      .rights-action input { width: auto; margin: 0; }
+      .rights-status { min-height: 1.3em; color: var(--success); }
+      .rights-status.error { color: var(--danger); }
+      [hidden] { display: none !important; }
+      @media (max-width: 760px) {
+        .layout { grid-template-columns: 1fr; }
+        .heading { align-items: flex-start; flex-direction: column; }
+        header { padding: 16px; }
+        main { margin: 24px auto; }
+        .panel { padding: 17px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/">InfoMan</a>
+      <nav class="header-links">
+        <a href="/register">Registration</a>
+        <a href="/login">Account</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="accessMessage" class="panel access-card" hidden>
+        <h1>User management</h1>
+        <p id="accessText">Checking administrator access…</p>
+        <a href="/login">Go to login</a>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div class="heading">
+          <div>
+            <h1>User management</h1>
+            <p>Add accounts, update user details, and manage access.</p>
+          </div>
+          <button id="refreshButton" class="secondary" type="button">Refresh list</button>
+        </div>
+
+        <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
+
+        <div class="layout">
+          <section id="userFormPanel" class="panel">
+            <h2 id="formTitle">Add user</h2>
+            <form id="userForm">
+              <label>
+                Full name
+                <input id="nameInput" name="name" maxlength="255" autocomplete="name" required />
+              </label>
+              <label>
+                Email
+                <input id="emailInput" name="email" type="email" maxlength="255" autocomplete="email" required />
+              </label>
+              <label id="passwordLabel">
+                Temporary password
+                <input id="passwordInput" name="password" type="password" minlength="8" autocomplete="new-password" required />
+              </label>
+              <div class="form-actions">
+                <button id="submitButton" type="submit">Add user</button>
+                <button id="cancelButton" class="secondary" type="button" hidden>Cancel edit</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <h2>Users</h2>
+            <div class="table-tools">
+              <input id="searchInput" type="search" placeholder="Search name or email" aria-label="Search users" />
+              <span id="userCount" class="count">0 users</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">User</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="userRows"></tbody>
+              </table>
+              <p id="emptyMessage" class="empty" hidden>No users found.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="rightsDialog" aria-labelledby="rightsDialogTitle">
+      <h2 id="rightsDialogTitle">Action rights</h2>
+      <p>Choose which actions this administrator can perform in each module.</p>
+      <div id="rightsModules" class="rights-modules"></div>
+      <p id="rightsDialogStatus" class="rights-status" role="status" aria-live="polite"></p>
+      <div class="form-actions">
+        <button id="saveRightsButton" type="button">Save rights</button>
+        <button id="closeRightsButton" class="secondary" type="button">Cancel</button>
+      </div>
+    </dialog>
+
+    <script src="/rights-dialog.js"></script>
+    <script>
+      const accessMessage = document.getElementById('accessMessage');
+      const accessText = document.getElementById('accessText');
+      const dashboard = document.getElementById('dashboard');
+      const statusMessage = document.getElementById('statusMessage');
+      const userForm = document.getElementById('userForm');
+      const userFormPanel = document.getElementById('userFormPanel');
+      const formTitle = document.getElementById('formTitle');
+      const nameInput = document.getElementById('nameInput');
+      const emailInput = document.getElementById('emailInput');
+      const passwordInput = document.getElementById('passwordInput');
+      const passwordLabel = document.getElementById('passwordLabel');
+      const submitButton = document.getElementById('submitButton');
+      const cancelButton = document.getElementById('cancelButton');
+      const searchInput = document.getElementById('searchInput');
+      const userRows = document.getElementById('userRows');
+      const userCount = document.getElementById('userCount');
+      const emptyMessage = document.getElementById('emptyMessage');
+      let users = [];
+      let editingUserId = null;
+      let currentUser = null;
+
+      function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status visible ${type}`;
+      }
+
+      async function parseResponse(response) {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || 'The request could not be completed.');
+        }
+        return result;
+      }
+
+      function addCell(row, content) {
+        const cell = document.createElement('td');
+        if (content instanceof Node) {
+          cell.append(content);
+        } else {
+          cell.textContent = content;
+        }
+        row.append(cell);
+        return cell;
+      }
+
+      function renderUsers() {
+        const query = searchInput.value.trim().toLowerCase();
+        const filteredUsers = users.filter((user) =>
+          user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query)
+        );
+        userRows.replaceChildren();
+        userCount.textContent = `${filteredUsers.length} ${filteredUsers.length === 1 ? 'user' : 'users'}`;
+        emptyMessage.hidden = filteredUsers.length !== 0;
+
+        for (const user of filteredUsers) {
+          const row = document.createElement('tr');
+          const userCell = document.createElement('td');
+          const name = document.createElement('span');
+          const email = document.createElement('span');
+          name.className = 'user-name';
+          name.textContent = user.name;
+          email.className = 'user-email';
+          email.textContent = user.email;
+          userCell.append(name, email);
+          row.append(userCell);
+
+          const statusBadge = document.createElement('span');
+          statusBadge.className = `badge${user.isBlocked ? ' blocked' : ''}`;
+          statusBadge.textContent = user.isBlocked ? 'Blocked' : user.status;
+          addCell(row, statusBadge);
+
+          const roleBadge = document.createElement('span');
+          roleBadge.className = `badge${user.role === 'admin' ? ' admin' : ''}`;
+          roleBadge.textContent = user.role;
+          addCell(row, roleBadge);
+
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+          if (currentUser.permissions.includes('users.edit')) {
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'secondary';
+            editButton.textContent = 'Edit';
+            editButton.addEventListener('click', () => beginEdit(user));
+            actions.append(editButton);
+          }
+
+          if (currentUser.permissions.includes('users.block') && user.role !== 'admin') {
+            const blockButton = document.createElement('button');
+            blockButton.type = 'button';
+            blockButton.className = user.isBlocked ? 'secondary' : 'danger';
+            blockButton.textContent = user.isBlocked ? 'Unblock' : 'Block';
+            blockButton.addEventListener('click', () => changeBlockStatus(user));
+            actions.append(blockButton);
+          }
+
+          if (
+            currentUser.permissions.includes('rights.manage')
+            && user.role === 'admin'
+            && String(user.id) !== String(currentUser.id)
+          ) {
+            const rightsButton = document.createElement('button');
+            rightsButton.type = 'button';
+            rightsButton.className = 'secondary';
+            rightsButton.textContent = 'Rights';
+            rightsButton.addEventListener('click', () => window.openRightsDialog(user, loadUsers));
+            actions.append(rightsButton);
+          }
+          addCell(row, actions);
+          userRows.append(row);
+        }
+      }
+
+      async function loadUsers() {
+        const result = await parseResponse(await fetch('/api/admin/users'));
+        users = result.users;
+        renderUsers();
+      }
+
+      function resetForm() {
+        editingUserId = null;
+        userForm.reset();
+        formTitle.textContent = 'Add user';
+        submitButton.textContent = 'Add user';
+        passwordLabel.hidden = false;
+        passwordInput.required = true;
+        cancelButton.hidden = true;
+      }
+
+      function beginEdit(user) {
+        editingUserId = user.id;
+        nameInput.value = user.name;
+        emailInput.value = user.email;
+        passwordInput.value = '';
+        formTitle.textContent = 'Edit user';
+        submitButton.textContent = 'Save changes';
+        passwordLabel.hidden = true;
+        passwordInput.required = false;
+        cancelButton.hidden = false;
+        nameInput.focus();
+      }
+
+      async function changeBlockStatus(user) {
+        const nextIsBlocked = !user.isBlocked;
+        const action = nextIsBlocked ? 'block' : 'unblock';
+        if (!window.confirm(`Are you sure you want to ${action} ${user.name}?`)) {
+          return;
+        }
+        try {
+          const result = await parseResponse(await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/block`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isBlocked: nextIsBlocked })
+          }));
+          showStatus(result.message, 'success');
+          await loadUsers();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      }
+
+      userForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = {
+          name: nameInput.value.trim(),
+          email: emailInput.value.trim()
+        };
+        const isEditing = editingUserId !== null;
+        if (!isEditing) {
+          payload.password = passwordInput.value;
+        }
+
+        try {
+          const result = await parseResponse(await fetch(
+            isEditing ? `/api/admin/users/${encodeURIComponent(editingUserId)}` : '/api/admin/users',
+            {
+              method: isEditing ? 'PATCH' : 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }
+          ));
+          showStatus(result.message, 'success');
+          resetForm();
+          await loadUsers();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      });
+
+      cancelButton.addEventListener('click', resetForm);
+      searchInput.addEventListener('input', renderUsers);
+      document.getElementById('refreshButton').addEventListener('click', () => {
+        loadUsers().catch((error) => showStatus(error.message, 'error'));
+      });
+
+      async function initialize() {
+        accessMessage.hidden = false;
+        try {
+          const sessionResponse = await fetch('/api/auth/session');
+          if (sessionResponse.status === 401) {
+            accessText.textContent = 'Please log in with the configured administrator account to manage users.';
+            return;
+          }
+          const session = await parseResponse(sessionResponse);
+          if (session.user.role !== 'admin') {
+            accessText.textContent = 'This page is available to administrators only.';
+            return;
+          }
+
+          currentUser = session.user;
+          userFormPanel.hidden = !currentUser.permissions.includes('users.create');
+          await loadUsers();
+          accessMessage.hidden = true;
+          dashboard.hidden = false;
+        } catch (error) {
+          accessText.textContent = error.message;
+        }
+      }
+
+      initialize();
+    </script>
+  </body>
+</html>
