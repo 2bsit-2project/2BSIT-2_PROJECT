@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register User</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --primary: #2f6fed;
+        --primary-dark: #1a4ec2;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --border: #d9e1ef;
+        --success: #0a8f5b;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #eef4ff, #f9fbff);
+        font-family: Arial, sans-serif;
+        color: var(--text);
+      }
+
+      .card {
+        width: min(100%, 480px);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 14px 38px rgba(31, 41, 55, 0.08);
+        padding: 32px;
+      }
+
+      h1 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-size: 2rem;
+      }
+
+      p {
+        margin-top: 0;
+        color: var(--muted);
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      input {
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 1rem;
+      }
+
+      input:focus {
+        outline: 2px solid rgba(47, 111, 237, 0.14);
+        border-color: var(--primary);
+      }
+
+      button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 150ms ease;
+      }
+
+      button:hover {
+        background: var(--primary-dark);
+      }
+
+      .status {
+        display: none;
+        margin-top: 16px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+
+      .status.success {
+        display: block;
+        background: rgba(10, 143, 91, 0.08);
+        color: var(--success);
+      }
+
+      .status.error {
+        display: block;
+        background: rgba(220, 38, 38, 0.08);
+        color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Register</h1>
+      <p>Create a new account. New users are automatically set to <strong>pending</strong>.</p>
+      <p>Already have an account? <a href="/login">Log in</a>.</p>
+
+      <form id="registerForm">
+        <label>
+          Full name
+          <input type="text" name="name" placeholder="Jane Doe" required />
+        </label>
+
+        <label>
+          Email
+          <input type="email" name="email" placeholder="jane@example.com" required />
+        </label>
+
+        <label>
+          Password
+          <input type="password" name="password" placeholder="Enter password" required />
+        </label>
+
+        <button type="submit">Create account</button>
+      </form>
+
+      <div id="formStatus" class="status" aria-live="polite"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById('registerForm');
+      const statusBox = document.getElementById('formStatus');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+
+        statusBox.className = 'status';
+        statusBox.textContent = '';
+
+        try {
+          const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || 'Unable to create account.');
+          }
+
+          statusBox.classList.add('success');
+          statusBox.textContent = `${result.message} Status: ${result.user.status}.`;
+          form.reset();
+        } catch (error) {
+          statusBox.classList.add('error');
+          statusBox.textContent = error.message;
+        }
+      });
+    </script>
+  </body>
+</html>
