@@ -10,10 +10,14 @@ uses random, server-side session tokens.
 - `GET /health` application and database status
 - `GET /register` registration page
 - `GET /login` login and logout page
+- `GET /forgot-password` request a password reset email
+- `GET /reset-password` choose a new password from a reset link
 - `POST /api/users` register an account
 - `POST /api/auth/login` start a session
 - `POST /api/auth/logout` end a session
 - `GET /api/auth/session` check the current session
+- `POST /api/auth/password-reset/request` email a reset link
+- `POST /api/auth/password-reset/confirm` set a new password
 - `GET /api/users` list users
 - `PATCH /api/users/:id/status` update user status
 
@@ -24,6 +28,7 @@ uses random, server-side session tokens.
 - `src/config/env.js` loads and validates environment settings.
 - `src/config/db.js` configures PostgreSQL, initializes tables, and reports database status.
 - `src/config/security.js` hashes and verifies passwords.
+- `src/config/email.js` sends password reset emails over SMTP.
 - `public/` contains the registration and login pages.
 
 ## Getting started
@@ -38,3 +43,8 @@ The app loads PostgreSQL settings from `.env` using `dotenv` and initializes its
 tables on startup. If PostgreSQL is unavailable, the app logs the failure and
 uses in-memory storage for local testing. In-memory users and sessions are lost
 when the process stops.
+
+To enable password reset emails, set `APP_BASE_URL` to the URL users can reach
+and configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, and `SMTP_FROM`. If your
+SMTP server requires authentication, also set `SMTP_USER` and `SMTP_PASSWORD`.
+Reset tokens expire after one hour, are stored hashed, and can only be used once.

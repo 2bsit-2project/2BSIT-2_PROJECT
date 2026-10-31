@@ -25,6 +25,7 @@ let dbStatus = 'disconnected';
 let dbError = null;
 let inMemoryUsers = [];
 const inMemorySessions = new Map();
+const inMemoryPasswordResets = new Map();
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -50,6 +51,17 @@ async function initializeDatabase() {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx
       ON user_sessions (expires_at);
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token_hash CHAR(64) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_idx
+      ON password_reset_tokens (expires_at);
     `);
 
     dbStatus = 'connected';
@@ -251,6 +263,103 @@ async function updateUserPassword(userId, password) {
   }
 }
 
+async function createPasswordResetToken(tokenHash, userId, expiresAt) {
+  if (dbStatus === 'connected') {
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at <= NOW()', [userId]);
+    await pool.query(
+      'INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [tokenHash, userId, expiresAt]
+    );
+    return;
+  }
+
+  for (const [storedHash, reset] of inMemoryPasswordResets) {
+    if (String(reset.userId) === String(userId) || reset.expiresAt <= Date.now()) {
+      inMemoryPasswordResets.delete(storedHash);
+    }
+  }
+  inMemoryPasswordResets.set(tokenHash, {
+    userId,
+    expiresAt: new Date(expiresAt).getTime()
+  });
+}
+
+async function deletePasswordResetTokens(userId) {
+  if (dbStatus === 'connected') {
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+    return;
+  }
+
+  for (const [storedHash, reset] of inMemoryPasswordResets) {
+    if (String(reset.userId) === String(userId)) {
+      inMemoryPasswordResets.delete(storedHash);
+    }
+  }
+}
+
+async function resetPasswordWithToken(tokenHash, passwordHash) {
+  if (dbStatus === 'connected') {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tokenResult = await client.query(
+        `SELECT user_id FROM password_reset_tokens
+         WHERE token_hash = $1 AND expires_at > NOW()
+         FOR UPDATE`,
+        [tokenHash]
+      );
+      if (!tokenResult.rows[0]) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+
+      const userId = tokenResult.rows[0].user_id;
+      const updateResult = await client.query(
+        'UPDATE users SET password = $1 WHERE id = $2',
+        [passwordHash, userId]
+      );
+      if (!updateResult.rowCount) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const reset = inMemoryPasswordResets.get(tokenHash);
+  if (!reset || reset.expiresAt <= Date.now()) {
+    inMemoryPasswordResets.delete(tokenHash);
+    return false;
+  }
+
+  const user = inMemoryUsers.find((item) => String(item.id) === String(reset.userId));
+  if (!user) {
+    inMemoryPasswordResets.delete(tokenHash);
+    return false;
+  }
+
+  user.password = passwordHash;
+  for (const [storedHash, storedReset] of inMemoryPasswordResets) {
+    if (String(storedReset.userId) === String(reset.userId)) {
+      inMemoryPasswordResets.delete(storedHash);
+    }
+  }
+  for (const [sessionHash, session] of inMemorySessions) {
+    if (String(session.userId) === String(reset.userId)) {
+      inMemorySessions.delete(sessionHash);
+    }
+  }
+  return true;
+}
+
 async function createSession(tokenHash, userId, expiresAt) {
   if (dbStatus === 'connected') {
     try {
@@ -357,6 +466,9 @@ module.exports = {
   getUserByEmail,
   createUser,
   updateUserPassword,
+  createPasswordResetToken,
+  deletePasswordResetTokens,
+  resetPasswordWithToken,
   createSession,
   getSession,
   deleteSession,

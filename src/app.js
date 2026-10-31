@@ -10,12 +10,16 @@ const {
   getUserByEmail,
   createUser,
   updateUserPassword,
+  createPasswordResetToken,
+  deletePasswordResetTokens,
+  resetPasswordWithToken,
   createSession,
   getSession,
   deleteSession,
   updateUserStatus
 } = require('./config/db');
 const { hashPassword, verifyPassword } = require('./config/security');
+const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
 
 const app = express();
 let activePort = PORT;
@@ -63,6 +67,7 @@ function toResponseShape(user) {
 
 const SESSION_COOKIE = 'infoman_session';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
 
 function getSessionToken(req) {
   const cookieHeader = req.headers.cookie || '';
@@ -123,6 +128,14 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
+app.get('/forgot-password', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'forgot-password.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'reset-password.html'));
+});
+
 app.get('/api/auth/session', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -133,6 +146,63 @@ app.get('/api/auth/session', async (req, res) => {
     return res.json({ authenticated: true, user: toResponseShape(user) });
   } catch (error) {
     return res.status(500).json({ message: 'Unable to check session.' });
+  }
+});
+
+app.post('/api/auth/password-reset/request', async (req, res) => {
+  if (!emailConfigured) {
+    return res.status(503).json({ message: 'Password reset email is not configured. Contact the administrator.' });
+  }
+
+  try {
+    const email = String((req.body && req.body.email) || '').trim();
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    const user = await getUserByEmail(email);
+    if (user) {
+      const token = randomBytes(32).toString('hex');
+      await createPasswordResetToken(
+        tokenHash(token),
+        user.id,
+        new Date(Date.now() + PASSWORD_RESET_DURATION_MS)
+      );
+      try {
+        await sendPasswordResetEmail(user.email, token);
+      } catch (error) {
+        await deletePasswordResetTokens(user.id);
+        throw error;
+      }
+    }
+
+    return res.json({ message: 'If that email is registered, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Unable to request password reset:', error.message);
+    return res.status(500).json({ message: 'Unable to send a password reset email. Please try again later.' });
+  }
+});
+
+app.post('/api/auth/password-reset/confirm', async (req, res) => {
+  try {
+    const token = String((req.body && req.body.token) || '');
+    const password = String((req.body && req.body.password) || '');
+    if (!/^[a-f\d]{64}$/i.test(token)) {
+      return res.status(400).json({ message: 'A valid reset token is required.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    }
+
+    const updated = await resetPasswordWithToken(tokenHash(token), await hashPassword(password));
+    if (!updated) {
+      return res.status(400).json({ message: 'This reset link is invalid or has expired. Request a new one.' });
+    }
+
+    return res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Unable to reset password:', error.message);
+    return res.status(500).json({ message: 'Unable to reset password. Please try again later.' });
   }
 });
 

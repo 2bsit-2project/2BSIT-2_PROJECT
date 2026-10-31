@@ -1,7 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const { app } = require('../src/app');
+const {
+  createPasswordResetToken,
+  resetPasswordWithToken
+} = require('../src/config/db');
 const { hashPassword, verifyPassword } = require('../src/config/security');
+const { emailConfigured } = require('../src/config/email');
 
 test('passwords are hashed and can be verified', async () => {
   const password = 'correct horse battery staple';
@@ -29,6 +35,16 @@ test('registration, login, session check, and logout work', async () => {
     const loginPage = await fetch(`${baseUrl}/login`);
     assert.equal(loginPage.status, 200);
     assert.match(await loginPage.text(), /Log in/);
+    assert.equal((await fetch(`${baseUrl}/forgot-password`)).status, 200);
+    assert.equal((await fetch(`${baseUrl}/reset-password`)).status, 200);
+    if (!emailConfigured) {
+      const emailNotConfigured = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' })
+      });
+      assert.equal(emailNotConfigured.status, 503);
+    }
 
     const registration = await fetch(`${baseUrl}/api/users`, {
       method: 'POST',
@@ -60,16 +76,58 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(session.status, 200);
     assert.equal((await session.json()).authenticated, true);
 
-    const logout = await fetch(`${baseUrl}/api/auth/logout`, {
+    const resetToken = 'a'.repeat(64);
+    const resetTokenHash = createHash('sha256').update(resetToken).digest('hex');
+    await createPasswordResetToken(
+      resetTokenHash,
+      registrationResult.user.id,
+      new Date(Date.now() + 60 * 60 * 1000)
+    );
+    const resetResponse = await fetch(`${baseUrl}/api/auth/password-reset/confirm`, {
       method: 'POST',
-      headers: { Cookie: sessionCookie }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetToken, password: 'new-test-password' })
     });
-    assert.equal(logout.status, 200);
+    assert.equal(resetResponse.status, 200);
 
-    const expiredSession = await fetch(`${baseUrl}/api/auth/session`, {
+    const reusedToken = await fetch(`${baseUrl}/api/auth/password-reset/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetToken, password: 'another-password' })
+    });
+    assert.equal(reusedToken.status, 400);
+
+    const expiredToken = 'b'.repeat(64);
+    await createPasswordResetToken(
+      createHash('sha256').update(expiredToken).digest('hex'),
+      registrationResult.user.id,
+      new Date(Date.now() - 1000)
+    );
+    const expiredReset = await fetch(`${baseUrl}/api/auth/password-reset/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: expiredToken, password: 'another-password' })
+    });
+    assert.equal(expiredReset.status, 400);
+
+    const invalidatedSession = await fetch(`${baseUrl}/api/auth/session`, {
       headers: { Cookie: sessionCookie }
     });
-    assert.equal(expiredSession.status, 401);
+    assert.equal(invalidatedSession.status, 401);
+
+    const oldPasswordLogin = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'test-password' })
+    });
+    assert.equal(oldPasswordLogin.status, 401);
+
+    const newPasswordLogin = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'new-test-password' })
+    });
+    assert.equal(newPasswordLogin.status, 200);
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
