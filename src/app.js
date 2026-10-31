@@ -1,7 +1,21 @@
 const express = require('express');
 const path = require('path');
+const { createHash, randomBytes } = require('node:crypto');
 const { PORT, NODE_ENV } = require('./config/env');
-const { connectDatabase, getDbStatus, listUsers, getUserById, createUser, updateUserStatus } = require('./config/db');
+const {
+  connectDatabase,
+  getDbStatus,
+  listUsers,
+  getUserById,
+  getUserByEmail,
+  createUser,
+  updateUserPassword,
+  createSession,
+  getSession,
+  deleteSession,
+  updateUserStatus
+} = require('./config/db');
+const { hashPassword, verifyPassword } = require('./config/security');
 
 const app = express();
 let activePort = PORT;
@@ -27,7 +41,7 @@ function normalizeUserPayload(payload = {}) {
     name: String(name || username || 'User').trim(),
     email: String(email).trim(),
     username: String(username || email || name || '').trim(),
-    password: String(password).trim(),
+    password: String(password),
     status: String(status).trim().toLowerCase() || 'pending'
   };
 }
@@ -45,6 +59,35 @@ function toResponseShape(user) {
     status: user.status || 'pending',
     createdAt: user.createdAt || user.created_at || new Date().toISOString()
   };
+}
+
+const SESSION_COOKIE = 'infoman_session';
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+function getSessionToken(req) {
+  const cookieHeader = req.headers.cookie || '';
+  const cookie = cookieHeader.split(';').map((part) => part.trim())
+    .find((part) => part.startsWith(`${SESSION_COOKIE}=`));
+  const token = cookie ? cookie.slice(SESSION_COOKIE.length + 1) : '';
+  return /^[a-f\d]{64}$/i.test(token) ? token : null;
+}
+
+function sessionCookieOptions() {
+  return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DURATION_MS / 1000}${NODE_ENV === 'production' ? '; Secure' : ''}`;
+}
+
+function tokenHash(token) {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+async function getAuthenticatedUser(req) {
+  const token = getSessionToken(req);
+  if (!token) {
+    return null;
+  }
+
+  const session = await getSession(tokenHash(token));
+  return session ? getUserById(session.userId) : null;
 }
 
 app.get('/', (req, res) => {
@@ -74,6 +117,69 @@ app.get('/health', async (req, res) => {
 
 app.get('/register', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'register.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
+});
+
+app.get('/api/auth/session', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ authenticated: false, message: 'Not logged in.' });
+    }
+
+    return res.json({ authenticated: true, user: toResponseShape(user) });
+  } catch (error) {
+    return res.status(500).json({ message: 'Unable to check session.' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || '').trim();
+    const password = String((req.body && req.body.password) || '');
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required.' });
+    }
+
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
+    }
+
+    const { matches, needsRehash } = await verifyPassword(password, user.password);
+    if (!matches) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
+    }
+
+    if (needsRehash) {
+      await updateUserPassword(user.id, await hashPassword(password));
+    }
+
+    const token = randomBytes(32).toString('hex');
+    await createSession(tokenHash(token), user.id, new Date(Date.now() + SESSION_DURATION_MS));
+    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${sessionCookieOptions()}`);
+    return res.json({ message: 'Logged in successfully.', user: toResponseShape(user) });
+  } catch (error) {
+    console.error('Unable to log in user:', error.message);
+    return res.status(500).json({ message: 'Unable to log in.' });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const token = getSessionToken(req);
+    if (token) {
+      await deleteSession(tokenHash(token));
+    }
+    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; ${sessionCookieOptions().replace(/Max-Age=\d+/, 'Max-Age=0')}`);
+    return res.json({ message: 'Logged out successfully.' });
+  } catch (error) {
+    console.error('Unable to log out user:', error.message);
+    return res.status(500).json({ message: 'Unable to log out.' });
+  }
 });
 
 app.get(['/api/users', '/users'], async (req, res) => {
@@ -122,7 +228,7 @@ async function registerUser(req, res) {
       return res.status(400).json({ message: 'Email is required.' });
     }
 
-    if (!payload.password) {
+    if (!payload.password.trim()) {
       return res.status(400).json({ message: 'Password is required.' });
     }
 

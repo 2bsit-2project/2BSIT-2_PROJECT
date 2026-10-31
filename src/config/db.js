@@ -7,6 +7,7 @@ const {
   DB_PASSWORD,
   NODE_ENV
 } = require('./env');
+const { hashPassword } = require('./security');
 
 const pool = new Pool({
   host: DB_HOST,
@@ -23,6 +24,7 @@ const pool = new Pool({
 let dbStatus = 'disconnected';
 let dbError = null;
 let inMemoryUsers = [];
+const inMemorySessions = new Map();
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -38,6 +40,17 @@ async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        token_hash CHAR(64) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx
+      ON user_sessions (expires_at);
+    `);
 
     dbStatus = 'connected';
     dbError = null;
@@ -45,7 +58,7 @@ async function initializeDatabase() {
   } catch (error) {
     dbStatus = 'error';
     dbError = error.message;
-    console.warn('Database connection failed. Using in-memory fallback for user registration.');
+    console.warn('Database initialization failed. Using in-memory fallback for user registration:', error.message);
     return false;
   }
 }
@@ -53,7 +66,11 @@ async function initializeDatabase() {
 async function connectDatabase() {
   try {
     await pool.query('SELECT 1');
-    await initializeDatabase();
+    const initialized = await initializeDatabase();
+    if (!initialized) {
+      return false;
+    }
+
     console.log('Database connected successfully.');
     return true;
   } catch (error) {
@@ -140,11 +157,28 @@ async function getUserById(userId) {
   }
 }
 
+async function getUserByEmail(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (dbStatus !== 'connected') {
+    const user = inMemoryUsers.find((item) => item.email.toLowerCase() === normalizedEmail);
+    return user ? { ...user } : null;
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  } catch (error) {
+    console.warn('Unable to find user in database. Checking in-memory store.', error.message);
+    const user = inMemoryUsers.find((item) => item.email.toLowerCase() === normalizedEmail);
+    return user ? { ...user } : null;
+  }
+}
+
 async function createUser(rawUser) {
   const name = String(rawUser.name || rawUser.fullName || rawUser.username || 'User').trim();
   const email = String(rawUser.email || rawUser.userEmail || '').trim();
   const username = String(rawUser.username || rawUser.userName || email || name).trim();
-  const password = String(rawUser.password || rawUser.userPassword || '').trim();
+  const password = String(rawUser.password || rawUser.userPassword || '');
   const status = String(rawUser.status || 'pending').trim().toLowerCase() || 'pending';
 
   if (!email) {
@@ -153,11 +187,13 @@ async function createUser(rawUser) {
     throw error;
   }
 
-  if (!password) {
+  if (!password.trim()) {
     const error = new Error('Password is required.');
     error.code = 'VALIDATION_ERROR';
     throw error;
   }
+
+  const passwordHash = await hashPassword(password);
 
   if (dbStatus === 'connected') {
     try {
@@ -165,7 +201,7 @@ async function createUser(rawUser) {
         `INSERT INTO users (name, email, username, password, status)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING *;`,
-        [name, email, username, password, status]
+        [name, email, username, passwordHash, status]
       );
       return userRowToRecord(result.rows[0]);
     } catch (error) {
@@ -191,13 +227,90 @@ async function createUser(rawUser) {
     name,
     email,
     username,
-    password,
+    password: passwordHash,
     status,
     createdAt: new Date().toISOString()
   };
 
   inMemoryUsers.unshift(newUser);
   return { ...newUser };
+}
+
+async function updateUserPassword(userId, password) {
+  if (dbStatus === 'connected') {
+    try {
+      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [password, userId]);
+    } catch (error) {
+      console.warn('Database password update failed. Updating in-memory user if available.', error.message);
+    }
+  }
+
+  const user = inMemoryUsers.find((item) => String(item.id) === String(userId));
+  if (user) {
+    user.password = password;
+  }
+}
+
+async function createSession(tokenHash, userId, expiresAt) {
+  if (dbStatus === 'connected') {
+    try {
+      await pool.query('DELETE FROM user_sessions WHERE expires_at <= NOW()');
+      await pool.query(
+        'INSERT INTO user_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+        [tokenHash, userId, expiresAt]
+      );
+      return;
+    } catch (error) {
+      console.warn('Database session creation failed. Using in-memory session store.', error.message);
+    }
+  }
+
+  inMemorySessions.set(tokenHash, { userId, expiresAt: new Date(expiresAt).getTime() });
+}
+
+async function getSession(tokenHash) {
+  if (dbStatus === 'connected') {
+    try {
+      const result = await pool.query(
+        `SELECT user_id FROM user_sessions
+         WHERE token_hash = $1 AND expires_at > NOW()`,
+        [tokenHash]
+      );
+      if (result.rows[0]) {
+        return { userId: result.rows[0].user_id };
+      }
+
+      const fallbackSession = inMemorySessions.get(tokenHash);
+      if (fallbackSession && fallbackSession.expiresAt > Date.now()) {
+        return { userId: fallbackSession.userId };
+      }
+      inMemorySessions.delete(tokenHash);
+      return null;
+    } catch (error) {
+      console.warn('Database session lookup failed. Checking in-memory session store.', error.message);
+    }
+  }
+
+  const session = inMemorySessions.get(tokenHash);
+  if (!session || session.expiresAt <= Date.now()) {
+    inMemorySessions.delete(tokenHash);
+    return null;
+  }
+  return { userId: session.userId };
+}
+
+async function deleteSession(tokenHash) {
+  if (dbStatus === 'connected') {
+    try {
+      await pool.query('DELETE FROM user_sessions WHERE token_hash = $1', [tokenHash]);
+    } catch (error) {
+      console.error('Database session deletion failed:', error.message);
+      inMemorySessions.delete(tokenHash);
+      throw error;
+    }
+  }
+
+  inMemorySessions.delete(tokenHash);
 }
 
 async function updateUserStatus(userId, newStatus) {
@@ -241,6 +354,11 @@ module.exports = {
   getDbStatus,
   listUsers,
   getUserById,
+  getUserByEmail,
   createUser,
+  updateUserPassword,
+  createSession,
+  getSession,
+  deleteSession,
   updateUserStatus
 };
