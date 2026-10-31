@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Superadmin console | InfoMan</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f7fc;
+        --panel: #ffffff;
+        --primary: #2f6fed;
+        --primary-dark: #1a4ec2;
+        --text: #1f2937;
+        --muted: #64748b;
+        --border: #dce4ef;
+        --success: #087c55;
+        --danger: #b42318;
+        --accent: #653bb5;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px max(24px, calc((100% - 1120px) / 2));
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      header a { color: var(--primary); font-weight: 700; text-decoration: none; }
+      main { width: min(1120px, calc(100% - 32px)); margin: 36px auto; }
+      .heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 4vw, 2.2rem); }
+      h2 { margin: 0 0 18px; font-size: 1.15rem; }
+      p { color: var(--muted); }
+      .heading p { margin: 0; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(31, 41, 55, 0.04);
+        padding: 22px;
+      }
+      .notice {
+        margin: 0 0 20px;
+        border-left: 4px solid var(--accent);
+        border-radius: 8px;
+        background: #f4efff;
+        padding: 12px 14px;
+        color: #49327b;
+      }
+      button {
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 14px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:hover { background: var(--primary-dark); }
+      button.secondary { background: #e9eef6; color: var(--text); }
+      button.secondary:hover { background: #dce4ef; }
+      button.approve { background: var(--success); }
+      button.approve:hover { background: #066344; }
+      button.danger { background: #fff0ef; color: var(--danger); }
+      button.danger:hover { background: #ffe0dd; }
+      button:disabled { cursor: not-allowed; opacity: 0.55; }
+      .status { display: none; margin: 0 0 16px; padding: 12px 14px; border-radius: 9px; font-weight: 600; }
+      .status.visible { display: block; }
+      .status.success { background: #e9f8f1; color: var(--success); }
+      .status.error { background: #fff0ef; color: var(--danger); }
+      .table-tools { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+      .table-tools input {
+        width: min(100%, 360px);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 11px 12px;
+        font: inherit;
+      }
+      .table-tools input:focus { outline: 2px solid rgba(47, 111, 237, 0.16); border-color: var(--primary); }
+      .count { margin-left: auto; color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; text-align: left; }
+      th, td { padding: 13px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+      th { color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+      td { font-size: 0.92rem; }
+      .user-name { font-weight: 700; }
+      .user-email { display: block; margin-top: 4px; color: var(--muted); font-size: 0.84rem; }
+      .badge {
+        display: inline-block;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: #eef2f8;
+        color: #46556b;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: capitalize;
+      }
+      .badge.pending { background: #fff6dd; color: #8a5a00; }
+      .badge.blocked { background: #fff0ef; color: var(--danger); }
+      .badge.admin { background: #edf3ff; color: #274c9b; }
+      .actions { display: flex; flex-wrap: wrap; gap: 7px; min-width: 260px; }
+      .actions button { padding: 8px 10px; font-size: 0.82rem; }
+      .empty { padding: 24px 10px; color: var(--muted); text-align: center; }
+      .access-card { max-width: 540px; margin: 10vh auto; text-align: center; }
+      dialog {
+        width: min(680px, calc(100% - 32px));
+        max-height: 85vh;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px;
+        color: var(--text);
+      }
+      dialog::backdrop { background: rgba(15, 23, 42, 0.48); }
+      .rights-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+      .rights-module { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+      .rights-module h3 { margin: 0 0 10px; font-size: 1rem; }
+      .rights-action { display: flex; flex-direction: row; align-items: center; gap: 9px; margin: 9px 0; font-weight: 400; }
+      .rights-action input { width: auto; margin: 0; }
+      .rights-status { min-height: 1.3em; color: var(--success); }
+      .rights-status.error { color: var(--danger); }
+      [hidden] { display: none !important; }
+      @media (max-width: 760px) {
+        .heading { align-items: flex-start; flex-direction: column; }
+        header { padding: 16px; }
+        main { margin: 24px auto; }
+        .panel { padding: 17px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/">InfoMan</a>
+      <nav class="header-links">
+        <a href="/">Dashboard</a>
+        <a href="/login">Account</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="accessMessage" class="panel access-card" hidden>
+        <h1>Superadmin console</h1>
+        <p id="accessText">Checking Superadmin access…</p>
+        <a href="/login">Go to login</a>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div class="heading">
+          <div>
+            <h1>Superadmin console</h1>
+            <p>Approve accounts and manage administrator access.</p>
+          </div>
+          <button id="refreshButton" class="secondary" type="button">Refresh list</button>
+        </div>
+
+        <p class="notice">Superadmin accounts are intentionally hidden and cannot be changed here.</p>
+        <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
+
+        <section class="panel">
+          <h2 id="accounts">Accounts</h2>
+          <div class="table-tools">
+            <input id="searchInput" type="search" placeholder="Search name or email" aria-label="Search users" />
+            <span id="userCount" class="count">0 accounts</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">User</th>
+                  <th scope="col">Approval</th>
+                  <th id="roles" scope="col">Role</th>
+                  <th scope="col">Access</th>
+                  <th id="rights" scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="userRows"></tbody>
+            </table>
+            <p id="emptyMessage" class="empty" hidden>No accounts found.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="rightsDialog" aria-labelledby="rightsDialogTitle">
+      <h2 id="rightsDialogTitle">Action rights</h2>
+      <p>Choose which actions this administrator can perform in each module.</p>
+      <div id="rightsModules" class="rights-modules"></div>
+      <p id="rightsDialogStatus" class="rights-status" role="status" aria-live="polite"></p>
+      <div class="actions">
+        <button id="saveRightsButton" type="button">Save rights</button>
+        <button id="closeRightsButton" class="secondary" type="button">Cancel</button>
+      </div>
+    </dialog>
+
+    <script src="/rights-dialog.js"></script>
+    <script>
+      const accessMessage = document.getElementById('accessMessage');
+      const accessText = document.getElementById('accessText');
+      const dashboard = document.getElementById('dashboard');
+      const statusMessage = document.getElementById('statusMessage');
+      const searchInput = document.getElementById('searchInput');
+      const userRows = document.getElementById('userRows');
+      const userCount = document.getElementById('userCount');
+      const emptyMessage = document.getElementById('emptyMessage');
+      let users = [];
+      let currentUser = null;
+
+      function can(permission) {
+        return currentUser.role === 'superadmin' || currentUser.permissions.includes(permission);
+      }
+
+      function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status visible ${type}`;
+      }
+
+      async function parseResponse(response) {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || 'The request could not be completed.');
+        }
+        return result;
+      }
+
+      function addCell(row, content) {
+        const cell = document.createElement('td');
+        if (content instanceof Node) {
+          cell.append(content);
+        } else {
+          cell.textContent = content;
+        }
+        row.append(cell);
+        return cell;
+      }
+
+      function createActionButton(label, className, action) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.textContent = label;
+        button.addEventListener('click', action);
+        return button;
+      }
+
+      function renderUsers() {
+        const query = searchInput.value.trim().toLowerCase();
+        const filteredUsers = users.filter((user) =>
+          user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query)
+        );
+        userRows.replaceChildren();
+        userCount.textContent = `${filteredUsers.length} ${filteredUsers.length === 1 ? 'account' : 'accounts'}`;
+        emptyMessage.hidden = filteredUsers.length !== 0;
+
+        for (const user of filteredUsers) {
+          const row = document.createElement('tr');
+          const identity = document.createElement('td');
+          const name = document.createElement('span');
+          const email = document.createElement('span');
+          name.className = 'user-name';
+          name.textContent = user.name;
+          email.className = 'user-email';
+          email.textContent = user.email;
+          identity.append(name, email);
+          row.append(identity);
+
+          const approvalBadge = document.createElement('span');
+          approvalBadge.className = `badge${user.status === 'pending' ? ' pending' : ''}`;
+          approvalBadge.textContent = user.status;
+          addCell(row, approvalBadge);
+
+          const roleBadge = document.createElement('span');
+          roleBadge.className = `badge${user.role === 'admin' ? ' admin' : ''}`;
+          roleBadge.textContent = user.role;
+          addCell(row, roleBadge);
+
+          const accessBadge = document.createElement('span');
+          accessBadge.className = `badge${user.isBlocked ? ' blocked' : ''}`;
+          accessBadge.textContent = user.isBlocked ? 'Blocked' : 'Allowed';
+          addCell(row, accessBadge);
+
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+          if (user.status === 'pending' && can('accounts.approve')) {
+            actions.append(createActionButton('Approve', 'approve', () => approveUser(user)));
+          } else if (user.status === 'active') {
+            const nextRole = user.role === 'admin' ? 'user' : 'admin';
+            const rolePermission = nextRole === 'admin' ? 'roles.assign_admin' : 'roles.remove_admin';
+            if (can(rolePermission)) {
+              const roleAction = nextRole === 'admin' ? 'Make admin' : 'Remove admin';
+              actions.append(createActionButton(roleAction, 'secondary', () => changeRole(user, nextRole)));
+            }
+          }
+
+          if (can('accounts.block')) {
+            const blockAction = user.isBlocked ? 'Unblock' : 'Block';
+            actions.append(createActionButton(
+              blockAction,
+              user.isBlocked ? 'secondary' : 'danger',
+              () => changeBlockStatus(user)
+            ));
+          }
+          if (
+            user.role === 'admin'
+            && can('rights.manage')
+            && (currentUser.role === 'superadmin' || String(user.id) !== String(currentUser.id))
+          ) {
+            actions.append(createActionButton('Rights', 'secondary', () =>
+              window.openRightsDialog(user, loadUsers)
+            ));
+          }
+          addCell(row, actions);
+          userRows.append(row);
+        }
+      }
+
+      async function loadUsers() {
+        const result = await parseResponse(await fetch('/api/superadmin/users'));
+        users = result.users;
+        renderUsers();
+      }
+
+      async function approveUser(user) {
+        if (!window.confirm(`Approve ${user.name}'s account?`)) {
+          return;
+        }
+        try {
+          const result = await parseResponse(await fetch(
+            `/api/superadmin/users/${encodeURIComponent(user.id)}/approve`,
+            { method: 'PATCH' }
+          ));
+          showStatus(result.message, 'success');
+          await loadUsers();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      }
+
+      async function changeRole(user, role) {
+        const action = role === 'admin' ? 'make an administrator' : 'remove administrator access from';
+        if (!window.confirm(`Are you sure you want to ${action} ${user.name}?`)) {
+          return;
+        }
+        try {
+          const result = await parseResponse(await fetch(
+            `/api/superadmin/users/${encodeURIComponent(user.id)}/role`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role })
+            }
+          ));
+          showStatus(result.message, 'success');
+          await loadUsers();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      }
+
+      async function changeBlockStatus(user) {
+        const isBlocked = !user.isBlocked;
+        const action = isBlocked ? 'block' : 'unblock';
+        if (!window.confirm(`Are you sure you want to ${action} ${user.name}?`)) {
+          return;
+        }
+        try {
+          const result = await parseResponse(await fetch(
+            `/api/superadmin/users/${encodeURIComponent(user.id)}/block`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ isBlocked })
+            }
+          ));
+          showStatus(result.message, 'success');
+          await loadUsers();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      }
+
+      searchInput.addEventListener('input', renderUsers);
+      document.getElementById('refreshButton').addEventListener('click', () => {
+        loadUsers().catch((error) => showStatus(error.message, 'error'));
+      });
+
+      async function initialize() {
+        accessMessage.hidden = false;
+        try {
+          const response = await fetch('/api/auth/session');
+          if (response.status === 401) {
+            accessText.textContent = 'Sign in with the configured Superadmin account to continue.';
+            return;
+          }
+          const session = await parseResponse(response);
+          currentUser = session.user;
+          if (!can('accounts.view')) {
+            accessText.textContent = 'You do not have permission to view account approvals.';
+            return;
+          }
+
+          await loadUsers();
+          accessMessage.hidden = true;
+          dashboard.hidden = false;
+          if (currentUser.role === 'admin') {
+            document.querySelector('.heading h1').textContent = 'Account approvals';
+            document.querySelector('.heading p').textContent = 'Manage account approvals and delegated administrator access.';
+          }
+        } catch (error) {
+          accessText.textContent = error.message;
+        }
+      }
+
+      initialize();
+    </script>
+  </body>
+</html>
