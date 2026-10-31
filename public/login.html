@@ -82,6 +82,7 @@
       <button id="logoutButton" type="button" hidden>Log out</button>
       <div id="formStatus" class="status" aria-live="polite"></div>
       <p id="adminLink" hidden><a href="/admin/users">Open user management</a></p>
+      <p id="superAdminLink" hidden><a href="/superadmin/users">Open Superadmin console</a></p>
       <p><a href="/forgot-password">Forgot your password?</a></p>
       <p>Need an account? <a href="/register">Register</a>.</p>
     </main>
@@ -91,6 +92,7 @@
       const logoutButton = document.getElementById('logoutButton');
       const statusBox = document.getElementById('formStatus');
       const adminLink = document.getElementById('adminLink');
+      const superAdminLink = document.getElementById('superAdminLink');
 
       function showStatus(message, type) {
         statusBox.className = `status ${type}`;
@@ -104,6 +106,7 @@
           form.hidden = true;
           logoutButton.hidden = false;
           adminLink.hidden = result.user.role !== 'admin';
+          superAdminLink.hidden = result.user.role !== 'superadmin';
           showStatus(`Logged in as ${result.user.name}.`, 'success');
           return;
         }
@@ -111,6 +114,7 @@
         form.hidden = false;
         logoutButton.hidden = true;
         adminLink.hidden = true;
+        superAdminLink.hidden = true;
       }
 
       form.addEventListener('submit', async (event) => {

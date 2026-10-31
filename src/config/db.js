@@ -7,7 +7,9 @@ const {
   DB_PASSWORD,
   NODE_ENV,
   ADMIN_EMAIL,
-  ADMIN_PASSWORD
+  ADMIN_PASSWORD,
+  SUPERADMIN_EMAIL,
+  SUPERADMIN_PASSWORD
 } = require('./env');
 const { hashPassword } = require('./security');
 
@@ -82,15 +84,24 @@ async function initializeDatabase() {
 }
 
 async function connectDatabase() {
+  if (
+    ADMIN_EMAIL && SUPERADMIN_EMAIL
+    && ADMIN_EMAIL.trim().toLowerCase() === SUPERADMIN_EMAIL.trim().toLowerCase()
+  ) {
+    throw new Error('ADMIN_EMAIL and SUPERADMIN_EMAIL must be different accounts.');
+  }
+
   try {
     await pool.query('SELECT 1');
     const initialized = await initializeDatabase();
     if (!initialized) {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
       return false;
     }
 
     await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+    await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
     console.log('Database connected successfully.');
     return true;
   } catch (error) {
@@ -100,8 +111,9 @@ async function connectDatabase() {
     console.warn(error.message);
     try {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
     } catch (adminError) {
-      console.error('Unable to initialize the configured admin account:', adminError.message);
+      console.error('Unable to initialize configured privileged accounts:', adminError.message);
     }
     return false;
   }
@@ -300,14 +312,15 @@ async function ensurePrivilegedUser(email, password, role) {
     return null;
   }
   if (!normalizedEmail || adminPassword.length < 8) {
-    throw new Error('Set both ADMIN_EMAIL and an ADMIN_PASSWORD of at least 8 characters.');
+    const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
+    throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
   }
 
   if (dbStatus === 'connected') {
     const existing = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     if (existing.rows[0]) {
       const result = await pool.query(
-        'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
+        "UPDATE users SET role = $1, status = 'active', is_blocked = FALSE WHERE id = $2 RETURNING *",
         [role, existing.rows[0].id]
       );
       return userRowToRecord(result.rows[0]);
@@ -326,6 +339,8 @@ async function ensurePrivilegedUser(email, password, role) {
   const existing = inMemoryUsers.find((user) => user.email.toLowerCase() === normalizedEmail);
   if (existing) {
     existing.role = role;
+    existing.status = 'active';
+    existing.isBlocked = false;
     return { ...existing };
   }
 
@@ -646,6 +661,60 @@ async function updateUserStatus(userId, newStatus) {
   return { ...inMemoryUsers[userIndex] };
 }
 
+async function approvePendingUser(userId) {
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET status = 'active'
+       WHERE id = $1 AND status = 'pending'
+         AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [userId]
+    );
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId)
+    && item.status === 'pending'
+    && String(item.role || 'user').toLowerCase() !== 'superadmin'
+  );
+  if (!user) {
+    return null;
+  }
+  user.status = 'active';
+  return { ...user };
+}
+
+async function setUserRole(userId, role) {
+  if (!['user', 'admin'].includes(role)) {
+    const error = new Error('Role must be user or admin.');
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET role = $1
+       WHERE id = $2 AND status = 'active'
+         AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [role, userId]
+    );
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId)
+    && item.status === 'active'
+    && String(item.role || 'user').toLowerCase() !== 'superadmin'
+  );
+  if (!user) {
+    return null;
+  }
+  user.role = role;
+  return { ...user };
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -667,5 +736,7 @@ module.exports = {
   createSession,
   getSession,
   deleteSession,
-  updateUserStatus
+  updateUserStatus,
+  approvePendingUser,
+  setUserRole
 };

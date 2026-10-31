@@ -31,5 +31,7 @@ module.exports = {
   SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
   SMTP_FROM: process.env.SMTP_FROM || process.env.SMTP_USER || '',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || '',
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || ''
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
+  SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
+  SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
 };

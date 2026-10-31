@@ -11,6 +11,8 @@ const {
   getUserByEmail,
   createUser,
   ensureAdminUser,
+  approvePendingUser,
+  setUserRole,
   updateManagedUser,
   setUserBlocked,
   updateUserPassword,
@@ -19,8 +21,7 @@ const {
   resetPasswordWithToken,
   createSession,
   getSession,
-  deleteSession,
-  updateUserStatus
+  deleteSession
 } = require('./config/db');
 const { hashPassword, verifyPassword } = require('./config/security');
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
@@ -121,6 +122,26 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+async function requireSuperAdmin(req, res, next) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Please log in to continue.' });
+    }
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked.' });
+    }
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'Superadmin access is required.' });
+    }
+    req.superAdminUser = user;
+    return next();
+  } catch (error) {
+    console.error('Unable to verify Superadmin access:', error.message);
+    return res.status(500).json({ message: 'Unable to verify Superadmin access.' });
+  }
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -168,6 +189,10 @@ app.get('/reset-password', (req, res) => {
 
 app.get('/admin/users', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
+});
+
+app.get('/superadmin/users', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'superadmin-users.html'));
 });
 
 app.get('/api/auth/session', async (req, res) => {
@@ -259,6 +284,9 @@ app.post('/api/auth/login', async (req, res) => {
     }
     if (user.isBlocked) {
       return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
+    }
+    if (user.status !== 'active') {
+      return res.status(403).json({ message: 'This account is pending approval.' });
     }
 
     if (needsRehash) {
@@ -440,10 +468,90 @@ app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
   }
 });
 
-app.patch('/api/users/:id/status', requireAdmin, async (req, res) => {
+app.get('/api/superadmin/users', requireSuperAdmin, async (req, res) => {
+  try {
+    const users = await listManagedUsers();
+    return res.json({
+      count: users.length,
+      users: users.map(toResponseShape)
+    });
+  } catch (error) {
+    console.error('Unable to fetch Superadmin user list:', error.message);
+    return res.status(500).json({ message: 'Unable to fetch users.' });
+  }
+});
+
+app.patch('/api/superadmin/users/:id/approve', requireSuperAdmin, async (req, res) => {
+  try {
+    const user = await approvePendingUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Pending user not found.' });
+    }
+    return res.json({ message: 'User approved successfully.', user: toResponseShape(user) });
+  } catch (error) {
+    console.error('Unable to approve user:', error.message);
+    return res.status(500).json({ message: 'Unable to approve user.' });
+  }
+});
+
+app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) => {
+  try {
+    const role = String((req.body && req.body.role) || '').trim().toLowerCase();
+    if (!['user', 'admin'].includes(role)) {
+      return res.status(400).json({ message: 'Role must be user or admin.' });
+    }
+    const target = await getUserById(req.params.id);
+    if (!target || target.role === 'superadmin') {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    if (target.status !== 'active') {
+      return res.status(400).json({ message: 'Approve the user before changing their role.' });
+    }
+    const user = await setUserRole(req.params.id, role);
+    if (!user) {
+      return res.status(404).json({ message: 'Active user not found.' });
+    }
+    return res.json({
+      message: role === 'admin' ? 'Administrator role assigned.' : 'Administrator role removed.',
+      user: toResponseShape(user)
+    });
+  } catch (error) {
+    console.error('Unable to change user role:', error.message);
+    return res.status(500).json({ message: 'Unable to change user role.' });
+  }
+});
+
+app.patch('/api/superadmin/users/:id/block', requireSuperAdmin, async (req, res) => {
+  try {
+    const isBlocked = req.body && req.body.isBlocked;
+    if (typeof isBlocked !== 'boolean') {
+      return res.status(400).json({ message: 'isBlocked must be true or false.' });
+    }
+    const target = await getUserById(req.params.id);
+    if (!target || target.role === 'superadmin') {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    const user = await setUserBlocked(req.params.id, isBlocked);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    return res.json({
+      message: isBlocked ? 'User blocked successfully.' : 'User unblocked successfully.',
+      user: toResponseShape(user)
+    });
+  } catch (error) {
+    console.error('Unable to change user block status:', error.message);
+    return res.status(500).json({ message: 'Unable to change user block status.' });
+  }
+});
+
+app.patch('/api/users/:id/status', requireSuperAdmin, async (req, res) => {
   try {
     const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
-    const user = await updateUserStatus(req.params.id, requestedStatus);
+    if (requestedStatus !== 'active') {
+      return res.status(400).json({ message: 'Superadmins can approve pending accounts by setting status to active.' });
+    }
+    const user = await approvePendingUser(req.params.id);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });

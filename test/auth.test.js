@@ -1,10 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
+process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
+process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
+
 const { app } = require('../src/app');
 const {
   createPasswordResetToken,
-  resetPasswordWithToken
+  resetPasswordWithToken,
+  ensureSuperAdminUser
 } = require('../src/config/db');
 const { hashPassword, verifyPassword } = require('../src/config/security');
 const { emailConfigured } = require('../src/config/email');
@@ -54,6 +58,30 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(registration.status, 201);
     const registrationResult = await registration.json();
     assert.equal(Object.hasOwn(registrationResult.user, 'password'), false);
+
+    const pendingLogin = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'test-password' })
+    });
+    assert.equal(pendingLogin.status, 403);
+
+    await ensureSuperAdminUser(process.env.SUPERADMIN_EMAIL, process.env.SUPERADMIN_PASSWORD);
+    const superAdminLogin = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: process.env.SUPERADMIN_EMAIL,
+        password: process.env.SUPERADMIN_PASSWORD
+      })
+    });
+    assert.equal(superAdminLogin.status, 200);
+    const superAdminCookie = superAdminLogin.headers.get('set-cookie').split(';', 1)[0];
+    const approval = await fetch(`${baseUrl}/api/superadmin/users/${registrationResult.user.id}/approve`, {
+      method: 'PATCH',
+      headers: { Cookie: superAdminCookie }
+    });
+    assert.equal(approval.status, 200);
 
     const rejectedLogin = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
