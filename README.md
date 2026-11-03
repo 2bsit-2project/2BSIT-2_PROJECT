@@ -1,4 +1,5 @@
 
+<<<<<<< HEAD
 # 2BSIT-2_PROJECT (InfoMan)
 
 
@@ -326,3 +327,8 @@ and cannot change their own rights; Superadmins can assign any listed right.
 Administrators promoted by a Superadmin receive the standard user-management
 rights by default; administrators promoted by another administrator receive
 only the promoting administrator's rights.
+=======
+-Bading
+
+
+>>>>>>> 0f88a02 (Test)
