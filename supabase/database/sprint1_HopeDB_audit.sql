@@ -1262,3 +1262,90 @@ CREATE TRIGGER audit_log_protect_truncate
 --   History     : SELECT * FROM audit_log WHERE table_name = 'employee' ORDER BY audit_id;
 --   Active rows : SELECT * FROM employee_active;
 -- =====================================================================    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- =================================---------------------------
+-- S1-DBA-02: HOPE BASE TABLES & SAMPLE DATA
+-- =================================---------------------------
+
+-- 1. CLEANUP EXISTING TABLES
+DROP TABLE IF EXISTS priceHist CASCADE;
+DROP TABLE IF EXISTS payment CASCADE;
+DROP TABLE IF EXISTS salesDetail CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS customer CASCADE;
+DROP TABLE IF EXISTS product CASCADE;
+DROP TABLE IF EXISTS jobHistory CASCADE;
+DROP TABLE IF EXISTS job CASCADE;
+DROP TABLE IF EXISTS employee CASCADE;
+DROP TABLE IF EXISTS department CASCADE;
+
+-- 2. CREATE BASE TABLES
+CREATE TABLE department (
+    deptno VARCHAR(5) PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE employee (
+    empno VARCHAR(5) PRIMARY KEY,
+    lastname VARCHAR(30) NOT NULL,
+    firstname VARCHAR(30) NOT NULL,
+    gender VARCHAR(10),
+    birthdate DATE,
+    hiredate DATE,
+    deptno VARCHAR(5) REFERENCES department(deptno) ON DELETE SET NULL
+);
+
+CREATE TABLE job (
+    jobcode VARCHAR(10) PRIMARY KEY,
+    jobtitle VARCHAR(50) NOT NULL,
+    min_salary NUMERIC(10, 2),
+    max_salary NUMERIC(10, 2)
+);
+
+CREATE TABLE customer (
+    custno VARCHAR(5) PRIMARY KEY,
+    custname VARCHAR(50) NOT NULL,
+    address VARCHAR(100),
+    city VARCHAR(50),
+    phone VARCHAR(20)
+);
+
+CREATE TABLE product (
+    prodno VARCHAR(10) PRIMARY KEY,
+    prodname VARCHAR(50) NOT NULL,
+    unit_price NUMERIC(10, 2) NOT NULL,
+    stock_qty INT DEFAULT 0
+);
+
+-- 3. INSERT SAMPLE DATA
+INSERT INTO department (deptno, name) VALUES
+('D01', 'Human Resources'),
+('D02', 'Sales & Marketing'),
+('D03', 'Information Technology');
+
+INSERT INTO employee (empno, lastname, firstname, gender, birthdate, hiredate, deptno) VALUES
+('E01', 'Santos', 'Maria', 'Female', '1995-04-12', '2021-06-01', 'D01'),
+('E02', 'Reyes', 'Juan', 'Male', '1992-09-25', '2020-03-15', 'D02'),
+('E03', 'Cruz', 'Ana', 'Female', '1998-11-03', '2022-01-10', 'D03');
+
+INSERT INTO customer (custno, custname, address, city, phone) VALUES
+('C01', 'Hope Retail', '123 Main St', 'Quezon City', '09171234567'),
+('C02', 'Tech Solutions', '456 Business Ave', 'Makati City', '09189876543');
+
+INSERT INTO product (prodno, prodname, unit_price, stock_qty) VALUES
+('P01', 'Standard Widget', 150.00, 100),
+('P02', 'Premium Gadget', 450.00, 50);
