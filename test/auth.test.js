@@ -53,18 +53,24 @@ test('registration, login, session check, and logout work', async () => {
     const registration = await fetch(`${baseUrl}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Auth Test', email, password: 'test-password' })
+      body: JSON.stringify({
+        name: 'Auth Test',
+        email,
+        password: 'test-password',
+        status: 'pending'
+      })
     });
     assert.equal(registration.status, 201);
     const registrationResult = await registration.json();
+    assert.equal(registrationResult.user.status, 'active');
     assert.equal(Object.hasOwn(registrationResult.user, 'password'), false);
 
-    const pendingLogin = await fetch(`${baseUrl}/api/auth/login`, {
+    const immediateLogin = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: 'test-password' })
     });
-    assert.equal(pendingLogin.status, 403);
+    assert.equal(immediateLogin.status, 200);
 
     await ensureSuperAdminUser(process.env.SUPERADMIN_EMAIL, process.env.SUPERADMIN_PASSWORD);
     const superAdminLogin = await fetch(`${baseUrl}/api/auth/login`, {
@@ -77,11 +83,6 @@ test('registration, login, session check, and logout work', async () => {
     });
     assert.equal(superAdminLogin.status, 200);
     const superAdminCookie = superAdminLogin.headers.get('set-cookie').split(';', 1)[0];
-    const approval = await fetch(`${baseUrl}/api/superadmin/users/${registrationResult.user.id}/approve`, {
-      method: 'PATCH',
-      headers: { Cookie: superAdminCookie }
-    });
-    assert.equal(approval.status, 200);
 
     const rejectedLogin = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',

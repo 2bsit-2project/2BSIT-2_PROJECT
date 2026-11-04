@@ -10,6 +10,7 @@ const { app } = require('../src/app');
 const {
   ensureAdminUser,
   ensureSuperAdminUser,
+  ensureDefaultUser,
   listManagedUsers
 } = require('../src/config/db');
 
@@ -25,6 +26,13 @@ async function postJson(url, body, cookie) {
 }
 
 test('admin can manage users while regular users cannot', async () => {
+  const defaultUser = await ensureDefaultUser(
+    `default-user-${Date.now()}@example.com`,
+    'default-user-test-password'
+  );
+  assert.equal(defaultUser.role, 'user');
+  assert.equal(defaultUser.status, 'active');
+
   await ensureAdminUser(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
   const superAdmin = await ensureSuperAdminUser(
     process.env.SUPERADMIN_EMAIL,
@@ -168,13 +176,8 @@ test('admin can manage users while regular users cannot', async () => {
       email: createdUser.email,
       password: 'managed-user-password'
     });
-    assert.equal(pendingLogin.status, 403);
-    const approval = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/approve`, {
-      method: 'PATCH',
-      headers: { Cookie: superAdminCookie }
-    });
-    assert.equal(approval.status, 200);
-    assert.equal((await approval.json()).user.status, 'active');
+    assert.equal(pendingLogin.status, 200);
+    assert.equal((await pendingLogin.json()).user.status, 'active');
 
     const promoteAdmin = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/role`, {
       method: 'PATCH',

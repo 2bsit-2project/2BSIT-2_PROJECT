@@ -1,8 +1,9 @@
 # 2BSIT-2_PROJECT (InfoMan)
 
-InfoMan is an Express application with user registration and login. New accounts
-start with a `pending` status. Passwords are stored as scrypt hashes, and login
-uses random, server-side session tokens.
+InfoMan is an Express application with user registration and login. Self-registered
+accounts are active immediately; accounts added by an administrator can still
+require approval. Passwords are stored as scrypt hashes, and login uses random,
+server-side session tokens.
 
 ## Features
 
@@ -60,6 +61,20 @@ tables on startup. If PostgreSQL is unavailable, the app logs the failure and
 uses in-memory storage for local testing. In-memory users and sessions are lost
 when the process stops.
 
+## Deploying to Netlify
+
+The included `netlify.toml` runs the Express app as a Netlify Function and routes
+site requests through it. Import this repository into Netlify and deploy the
+branch you want to publish. Netlify will install dependencies and use the
+configured function and redirects automatically.
+
+Add the database settings (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
+`DB_PASSWORD`) as Netlify environment variables, along with `NODE_ENV=production`.
+Use a hosted PostgreSQL database for persistent accounts and sessions; the
+in-memory fallback is temporary and will not persist between function calls.
+Set `APP_BASE_URL` to the deployed site URL if password-reset emails are enabled.
+Keep credentials in Netlify's environment settings, not in GitHub.
+
 After signing in, the main page shows only modules allowed by the account's role
 and assigned permissions. The dashboard API filters those modules, and the
 server also checks permissions before returning management pages or accepting
@@ -78,12 +93,20 @@ regular accounts, while Superadmin accounts are hidden and cannot be edited or
 blocked through the management API. Never commit `.env` or share the
 administrator password.
 
+For a ready-to-use regular account, set `DEFAULT_USER_EMAIL` and
+`DEFAULT_USER_PASSWORD` (at least 8 characters) in `.env`. On startup, the app
+creates this account as an active User if it does not already exist. These seed
+credentials should be unique and kept private; do not use demo credentials in
+production.
+
 Set `SUPERADMIN_EMAIL` and `SUPERADMIN_PASSWORD` (at least 8 characters) in
 `.env` to provision the separate Superadmin account. Sign in with it and open
-`/superadmin/users` to approve pending accounts, promote active users to
-administrators, and block or unblock accounts. Pending accounts cannot sign in
-until approved. Superadmin accounts are excluded from both management screens
-and cannot be changed through their APIs.
+`/superadmin/users` to review pending accounts created by an administrator,
+promote active users to administrators, and block or unblock accounts. New
+self-registered accounts are active immediately. An administrator-created
+pending account is activated automatically after its first successful sign-in,
+or an administrator can approve it in advance. Superadmin accounts are excluded
+from both management screens and cannot be changed through their APIs.
 
 Administrators can open the **Rights** dialog for another administrator from
 either management screen. Rights are grouped by module and enforced by the API

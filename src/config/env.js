@@ -33,5 +33,7 @@ module.exports = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || '',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
   SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
-  SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
+  SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || '',
+  DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || '',
+  DEFAULT_USER_PASSWORD: process.env.DEFAULT_USER_PASSWORD || ''
 };

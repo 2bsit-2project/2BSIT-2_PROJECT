@@ -9,7 +9,9 @@ const {
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
   SUPERADMIN_EMAIL,
-  SUPERADMIN_PASSWORD
+  SUPERADMIN_PASSWORD,
+  DEFAULT_USER_EMAIL,
+  DEFAULT_USER_PASSWORD
 } = require('./env');
 const { hashPassword } = require('./security');
 const {
@@ -89,11 +91,13 @@ async function initializeDatabase() {
 }
 
 async function connectDatabase() {
-  if (
-    ADMIN_EMAIL && SUPERADMIN_EMAIL
-    && ADMIN_EMAIL.trim().toLowerCase() === SUPERADMIN_EMAIL.trim().toLowerCase()
-  ) {
-    throw new Error('ADMIN_EMAIL and SUPERADMIN_EMAIL must be different accounts.');
+  const configuredEmails = [
+    ADMIN_EMAIL,
+    SUPERADMIN_EMAIL,
+    DEFAULT_USER_EMAIL
+  ].filter(Boolean).map((email) => email.trim().toLowerCase());
+  if (new Set(configuredEmails).size !== configuredEmails.length) {
+    throw new Error('ADMIN_EMAIL, SUPERADMIN_EMAIL, and DEFAULT_USER_EMAIL must be different accounts.');
   }
 
   try {
@@ -102,11 +106,13 @@ async function connectDatabase() {
     if (!initialized) {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+      await ensureDefaultUser(DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
       return false;
     }
 
     await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
     await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+    await ensureDefaultUser(DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
     console.log('Database connected successfully.');
     return true;
   } catch (error) {
@@ -117,8 +123,9 @@ async function connectDatabase() {
     try {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+      await ensureDefaultUser(DEFAULT_USER_EMAIL, DEFAULT_USER_PASSWORD);
     } catch (adminError) {
-      console.error('Unable to initialize configured privileged accounts:', adminError.message);
+      console.error('Unable to initialize configured accounts:', adminError.message);
     }
     return false;
   }
@@ -392,6 +399,29 @@ async function ensureAdminUser(email, password) {
 
 async function ensureSuperAdminUser(email, password) {
   return ensurePrivilegedUser(email, password, 'superadmin');
+}
+
+async function ensureDefaultUser(email, password) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const userPassword = String(password || '');
+  if (!normalizedEmail && !userPassword) {
+    return null;
+  }
+  if (!normalizedEmail || userPassword.length < 8) {
+    throw new Error('Set both DEFAULT_USER_EMAIL and a DEFAULT_USER_PASSWORD of at least 8 characters.');
+  }
+
+  const existing = await getUserByEmail(normalizedEmail);
+  if (existing) {
+    return existing;
+  }
+
+  return createUser({
+    name: 'Demo User',
+    email: normalizedEmail,
+    password: userPassword,
+    status: 'active'
+  });
 }
 
 async function updateManagedUser(userId, rawUser) {
@@ -787,6 +817,7 @@ module.exports = {
   createUser,
   ensureAdminUser,
   ensureSuperAdminUser,
+  ensureDefaultUser,
   updateManagedUser,
   setUserBlocked,
   updateUserPassword,

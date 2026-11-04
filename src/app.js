@@ -35,11 +35,12 @@ const { hashPassword, verifyPassword } = require('./config/security');
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
 
 const app = express();
+const publicDirectory = path.join(process.cwd(), 'public');
 let activePort = PORT;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(publicDirectory));
 
 function normalizeUserPayload(payload = {}) {
   const raw = payload && typeof payload === 'object' ? payload : {};
@@ -207,11 +208,11 @@ app.get('/api', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'homepage.html'));
+  res.sendFile(path.join(publicDirectory, 'homepage.html'));
 });
 
 app.get('/dashboard', requireAuthenticatedPage, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+  res.sendFile(path.join(publicDirectory, 'dashboard.html'));
 });
 
 app.get('/api/dashboard/modules', async (req, res) => {
@@ -245,19 +246,19 @@ app.get('/health', async (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'register.html'));
+  res.sendFile(path.join(publicDirectory, 'register.html'));
 });
 
 app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
+  res.sendFile(path.join(publicDirectory, 'login.html'));
 });
 
 app.get('/forgot-password', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'forgot-password.html'));
+  res.sendFile(path.join(publicDirectory, 'forgot-password.html'));
 });
 
 app.get('/reset-password', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'reset-password.html'));
+  res.sendFile(path.join(publicDirectory, 'reset-password.html'));
 });
 
 app.get(
@@ -265,7 +266,7 @@ app.get(
   requireAuthenticatedPage,
   requireModulePage('users.view', ['admin']),
   (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
+  res.sendFile(path.join(publicDirectory, 'admin-users.html'));
   }
 );
 
@@ -274,7 +275,7 @@ app.get(
   requireAuthenticatedPage,
   requireModulePage('accounts.view', ['admin', 'superadmin']),
   (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'superadmin-users.html'));
+  res.sendFile(path.join(publicDirectory, 'superadmin-users.html'));
   }
 );
 
@@ -356,7 +357,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    const user = await getUserByEmail(email);
+    let user = await getUserByEmail(email);
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
@@ -368,8 +369,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (user.isBlocked) {
       return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
     }
-    if (user.status !== 'active') {
-      return res.status(403).json({ message: 'This account is pending approval.' });
+    if (user.status === 'pending') {
+      user = await approvePendingUser(user.id) || await getUserById(user.id);
+    }
+    if (!user || user.status !== 'active') {
+      return res.status(403).json({ message: 'This account is inactive. Contact an administrator.' });
     }
 
     if (needsRehash) {
@@ -441,7 +445,7 @@ app.get('/api/users/:id', requireAdminPermission('users.view'), async (req, res)
 async function registerUser(req, res) {
   try {
     const payload = normalizeUserPayload(req.body || {});
-    payload.status = 'pending';
+    payload.status = 'active';
 
     if (!payload.email) {
       return res.status(400).json({ message: 'Email is required.' });
