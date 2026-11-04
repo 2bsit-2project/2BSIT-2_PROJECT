@@ -1,0 +1,18 @@
+Sprint 1 Test Cases: User Management
+
+Task: S1-TST-03
+Project: Hope, Inc. ERP
+
+1. Test Cases: Add User
+- TC-UM-01: Admin clicks "+ Add User" and fills in valid details -> New user account is successfully created in the system.
+- TC-UM-02: Leave required fields blank during user creation -> System shows validation errors and prevents saving.
+
+2. Test Cases: Edit User
+- TC-UM-03: Admin edits an existing user's name or role -> Changes update successfully and save to the database.
+
+3. Test Cases: Block / Unblock User
+- TC-UM-04: Admin clicks "Block" on an active user -> User status turns to blocked and they are restricted from logging in.
+- TC-UM-05: Admin clicks "Unblock" on a blocked user -> User status restores to active and they can log in again.
+
+4. Test Cases: Approve User
+- TC-UM-06: Admin reviews and approves a newly registered user account -> User is granted access permissions according to their assigned role.
