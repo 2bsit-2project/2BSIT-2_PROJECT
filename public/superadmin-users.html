@@ -120,6 +120,7 @@
       .actions button { padding: 8px 10px; font-size: 0.82rem; }
       .empty { padding: 24px 10px; color: var(--muted); text-align: center; }
       .access-card { max-width: 540px; margin: 10vh auto; text-align: center; }
+
       dialog {
         width: min(680px, calc(100% - 32px));
         max-height: 85vh;
@@ -137,6 +138,7 @@
       .rights-action input { width: auto; margin: 0; }
       .rights-status { min-height: 1.3em; color: var(--success); }
       .rights-status.error { color: var(--danger); }
+
       [hidden] { display: none !important; }
       @media (max-width: 760px) {
         .heading { align-items: flex-start; flex-direction: column; }
@@ -149,10 +151,14 @@
   <body>
     <header>
       <a href="/">InfoMan</a>
+
       <nav class="header-links">
         <a href="/dashboard">Dashboard</a>
         <a href="/login">Account</a>
       </nav>
+
+      <a href="/login">Account</a>
+
     </header>
 
     <main>
@@ -175,7 +181,11 @@
         <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
 
         <section class="panel">
+
           <h2 id="accounts">Accounts</h2>
+
+          <h2>Accounts</h2>
+
           <div class="table-tools">
             <input id="searchInput" type="search" placeholder="Search name or email" aria-label="Search users" />
             <span id="userCount" class="count">0 accounts</span>
@@ -186,9 +196,15 @@
                 <tr>
                   <th scope="col">User</th>
                   <th scope="col">Approval</th>
+
                   <th id="roles" scope="col">Role</th>
                   <th scope="col">Access</th>
                   <th id="rights" scope="col">Actions</th>
+
+                  <th scope="col">Role</th>
+                  <th scope="col">Access</th>
+                  <th scope="col">Actions</th>
+
                 </tr>
               </thead>
               <tbody id="userRows"></tbody>
@@ -198,6 +214,7 @@
         </section>
       </section>
     </main>
+
 
     <dialog id="rightsDialog" aria-labelledby="rightsDialogTitle">
       <h2 id="rightsDialogTitle">Action rights</h2>
@@ -211,6 +228,7 @@
     </dialog>
 
     <script src="/rights-dialog.js"></script>
+
     <script>
       const accessMessage = document.getElementById('accessMessage');
       const accessText = document.getElementById('accessText');
@@ -221,11 +239,13 @@
       const userCount = document.getElementById('userCount');
       const emptyMessage = document.getElementById('emptyMessage');
       let users = [];
+
       let currentUser = null;
 
       function can(permission) {
         return currentUser.role === 'superadmin' || currentUser.permissions.includes(permission);
       }
+
 
       function showStatus(message, type) {
         statusMessage.textContent = message;
@@ -298,6 +318,7 @@
 
           const actions = document.createElement('div');
           actions.className = 'actions';
+
           if (user.status === 'pending' && can('accounts.approve')) {
             actions.append(createActionButton('Approve', 'approve', () => approveUser(user)));
           } else if (user.status === 'active') {
@@ -326,6 +347,25 @@
               window.openRightsDialog(user, loadUsers)
             ));
           }
+
+
+
+          if (user.status === 'pending') {
+            actions.append(createActionButton('Approve', 'approve', () => approveUser(user)));
+          } else if (user.status === 'active') {
+            const nextRole = user.role === 'admin' ? 'user' : 'admin';
+            const roleAction = nextRole === 'admin' ? 'Make admin' : 'Remove admin';
+            actions.append(createActionButton(roleAction, 'secondary', () => changeRole(user, nextRole)));
+          }
+
+          const blockAction = user.isBlocked ? 'Unblock' : 'Block';
+          actions.append(createActionButton(
+            blockAction,
+            user.isBlocked ? 'secondary' : 'danger',
+            () => changeBlockStatus(user)
+          ));
+
+
           addCell(row, actions);
           userRows.append(row);
         }
@@ -410,19 +450,32 @@
             return;
           }
           const session = await parseResponse(response);
+
           currentUser = session.user;
           if (!can('accounts.view')) {
             accessText.textContent = 'You do not have permission to view account approvals.';
+
+
+          currentUser = session.user;
+          if (!can('accounts.view')) {
+            accessText.textContent = 'You do not have permission to view account approvals.';
+
+          if (session.user.role !== 'superadmin') {
+            accessText.textContent = 'This console is available to Superadmins only.';
+
+
             return;
           }
 
           await loadUsers();
           accessMessage.hidden = true;
           dashboard.hidden = false;
+
           if (currentUser.role === 'admin') {
             document.querySelector('.heading h1').textContent = 'Account approvals';
             document.querySelector('.heading p').textContent = 'Manage account approvals and delegated administrator access.';
           }
+
         } catch (error) {
           accessText.textContent = error.message;
         }
