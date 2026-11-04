@@ -5,34 +5,88 @@ const { PORT, NODE_ENV } = require('./config/env');
 const {
   connectDatabase,
   getDbStatus,
+
+
+
+  listUsers,
+
+
+
+
   listManagedUsers,
   getUserById,
   getUserByEmail,
   createUser,
   ensureAdminUser,
+
   approvePendingUser,
   setUserRole,
   setUserPermissions,
+
+
+  approvePendingUser,
+  setUserRole,
+  setUserPermissions,
+
+  approvePendingUser,
+  setUserRole,
+
+
+
+
   updateManagedUser,
   setUserBlocked,
   updateUserPassword,
   createPasswordResetToken,
   deletePasswordResetTokens,
   resetPasswordWithToken,
+
   createSession,
   getSession,
   deleteSession
 } = require('./config/db');
+
 const {
   PERMISSION_MODULES,
   ALL_PERMISSIONS,
   DEFAULT_ADMIN_PERMISSIONS,
   normalizePermissions,
+
   getUserPermissions,
   getDashboardModules
+
+  getUserPermissions
+
 } = require('./config/permissions');
 const { hashPassword, verifyPassword } = require('./config/security');
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
+
+
+
+const { hashPassword, verifyPassword } = require('./config/security');
+const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
+
+
+  getUserById,
+  getUserByEmail,
+  createUser,
+  updateUserPassword,
+
+  createSession,
+  getSession,
+  deleteSession,
+  updateUserStatus
+} = require('./config/db');
+const { hashPassword, verifyPassword } = require('./config/security');
+
+const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
+
+
+
+
 
 const app = express();
 let activePort = PORT;
@@ -74,16 +128,52 @@ function toResponseShape(user) {
     email: user.email,
     username: user.username || user.email,
     status: user.status || 'pending',
+
     role: user.role || 'user',
     isBlocked: Boolean(user.isBlocked),
     permissions: getUserPermissions(user),
+
+
+    role: user.role || 'user',
+    isBlocked: Boolean(user.isBlocked),
+    permissions: getUserPermissions(user),
+
+
+    role: user.role || 'user',
+    isBlocked: Boolean(user.isBlocked),
+
+
+    role: user.role || 'user',
+    isBlocked: Boolean(user.isBlocked),
+
+
+
+
+
     createdAt: user.createdAt || user.created_at || new Date().toISOString()
   };
 }
 
 const SESSION_COOKIE = 'infoman_session';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
+
+
+const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
+
+
+const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
+
+
+const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
+
+
+
 
 function getSessionToken(req) {
   const cookieHeader = req.headers.cookie || '';
@@ -110,6 +200,7 @@ async function getAuthenticatedUser(req) {
   const session = await getSession(tokenHash(token));
   return session ? getUserById(session.userId) : null;
 }
+
 
 function requireAdminPermission(permission) {
   return async (req, res, next) => {
@@ -165,6 +256,7 @@ function requireDelegatedPermission(permission) {
   };
 }
 
+
 function requireAuthenticatedPage(req, res, next) {
   getAuthenticatedUser(req).then((user) => {
     if (!user || user.isBlocked) {
@@ -188,11 +280,63 @@ function requireModulePage(permission, roles) {
   };
 }
 
+
+
+
+async function requireAdmin(req, res, next) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Please log in to continue.' });
+    }
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked.' });
+    }
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Administrator access is required.' });
+    }
+    req.adminUser = user;
+    return next();
+  } catch (error) {
+    console.error('Unable to verify administrator access:', error.message);
+    return res.status(500).json({ message: 'Unable to verify administrator access.' });
+  }
+}
+
+
+async function requireSuperAdmin(req, res, next) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Please log in to continue.' });
+    }
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked.' });
+    }
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'Superadmin access is required.' });
+    }
+    req.superAdminUser = user;
+    return next();
+  } catch (error) {
+    console.error('Unable to verify Superadmin access:', error.message);
+    return res.status(500).json({ message: 'Unable to verify Superadmin access.' });
+  }
+}
+
+
+
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+
 app.get('/api', (req, res) => {
+
+
+app.get('/', (req, res) => {
+
   res.json({
     name: 'InfoMan',
     status: 'ok',
@@ -205,6 +349,7 @@ app.get('/api', (req, res) => {
     }
   });
 });
+
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'homepage.html'));
@@ -233,6 +378,7 @@ app.get('/api/dashboard/modules', async (req, res) => {
   }
 });
 
+
 app.get('/health', async (req, res) => {
   const dbStatus = getDbStatus();
 
@@ -252,6 +398,7 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
+
 app.get('/forgot-password', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'forgot-password.html'));
 });
@@ -259,6 +406,7 @@ app.get('/forgot-password', (req, res) => {
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'reset-password.html'));
 });
+
 
 app.get(
   '/admin/users',
@@ -278,6 +426,17 @@ app.get(
   }
 );
 
+app.get('/admin/users', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
+});
+
+
+app.get('/superadmin/users', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'superadmin-users.html'));
+});
+
+
+
 app.get('/api/auth/session', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -290,6 +449,7 @@ app.get('/api/auth/session', async (req, res) => {
     return res.status(500).json({ message: 'Unable to check session.' });
   }
 });
+
 
 app.post('/api/auth/password-reset/request', async (req, res) => {
   if (!emailConfigured) {
@@ -348,6 +508,7 @@ app.post('/api/auth/password-reset/confirm', async (req, res) => {
   }
 });
 
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const email = String((req.body && req.body.email) || '').trim();
@@ -365,12 +526,25 @@ app.post('/api/auth/login', async (req, res) => {
     if (!matches) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
+
     if (user.isBlocked) {
       return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
     }
     if (user.status !== 'active') {
       return res.status(403).json({ message: 'This account is pending approval.' });
     }
+
+
+
+
+
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
+    }
+
+
+
+
 
     if (needsRehash) {
       await updateUserPassword(user.id, await hashPassword(password));
@@ -400,10 +574,29 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
+
 app.get(['/api/users', '/users'], requireAdminPermission('users.view'), async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
     const items = await listManagedUsers(status);
+
+
+
+
+app.get(['/api/users', '/users'], requireAdmin, async (req, res) => {
+  try {
+    const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
+    const items = await listManagedUsers(status);
+
+
+app.get(['/api/users', '/users'], async (req, res) => {
+  try {
+    const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
+    const items = await listUsers(status);
+
+
+
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -413,9 +606,32 @@ app.get(['/api/users', '/users'], requireAdminPermission('users.view'), async (r
   }
 });
 
+
 app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.view'), async (req, res) => {
   try {
     const items = await listManagedUsers('pending');
+
+
+app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.view'), async (req, res) => {
+  try {
+    const items = await listManagedUsers('pending');
+
+app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res) => {
+  try {
+    const items = await listManagedUsers('pending');
+
+
+app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res) => {
+  try {
+    const items = await listManagedUsers('pending');
+
+app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
+  try {
+    const items = await listUsers('pending');
+
+
+
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -425,10 +641,28 @@ app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.
   }
 });
 
+
 app.get('/api/users/:id', requireAdminPermission('users.view'), async (req, res) => {
   try {
     const user = await getUserById(req.params.id);
     if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
+
+
+
+
+app.get('/api/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
+
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+
+
+
+
       return res.status(404).json({ message: 'User not found.' });
     }
 
@@ -441,7 +675,24 @@ app.get('/api/users/:id', requireAdminPermission('users.view'), async (req, res)
 async function registerUser(req, res) {
   try {
     const payload = normalizeUserPayload(req.body || {});
+
     payload.status = 'pending';
+
+
+
+    payload.status = 'pending';
+
+
+
+    payload.status = 'pending';
+
+
+
+    payload.status = 'pending';
+
+
+
+
 
     if (!payload.email) {
       return res.status(400).json({ message: 'Email is required.' });
@@ -468,7 +719,16 @@ async function registerUser(req, res) {
 
 app.post(['/api/users', '/api/users/register', '/api/register', '/users/register', '/register'], registerUser);
 
+
 app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, res) => {
+
+
+app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, res) => {
+
+
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+
+
   try {
     const users = await listManagedUsers();
     return res.json({ count: users.length, users: users.map(toResponseShape) });
@@ -478,7 +738,15 @@ app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, re
   }
 });
 
+
 app.post('/api/admin/users', requireAdminPermission('users.create'), async (req, res) => {
+
+
+app.post('/api/admin/users', requireAdminPermission('users.create'), async (req, res) => {
+
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+
+
   try {
     const name = String((req.body && req.body.name) || '').trim();
     const email = String((req.body && req.body.email) || '').trim();
@@ -504,7 +772,15 @@ app.post('/api/admin/users', requireAdminPermission('users.create'), async (req,
   }
 });
 
+
 app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (req, res) => {
+
+
+app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (req, res) => {
+
+app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
+
+
   try {
     const name = String((req.body && req.body.name) || '').trim();
     const email = String((req.body && req.body.email) || '').trim();
@@ -526,7 +802,15 @@ app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (r
   }
 });
 
+
 app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), async (req, res) => {
+
+
+app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), async (req, res) => {
+
+app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
+
+
   try {
     const isBlocked = req.body && req.body.isBlocked;
     if (typeof isBlocked !== 'boolean') {
@@ -551,7 +835,16 @@ app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), a
   }
 });
 
+
 app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), async (req, res) => {
+
+
+app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), async (req, res) => {
+
+
+app.get('/api/superadmin/users', requireSuperAdmin, async (req, res) => {
+
+
   try {
     const users = await listManagedUsers();
     return res.json({
@@ -564,7 +857,15 @@ app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), as
   }
 });
 
+
 app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accounts.approve'), async (req, res) => {
+
+
+app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accounts.approve'), async (req, res) => {
+
+app.patch('/api/superadmin/users/:id/approve', requireSuperAdmin, async (req, res) => {
+
+
   try {
     const user = await approvePendingUser(req.params.id);
     if (!user) {
@@ -577,11 +878,17 @@ app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accou
   }
 });
 
+
 app.patch('/api/superadmin/users/:id/role', (req, res, next) => {
   const requestedRole = String((req.body && req.body.role) || '').trim().toLowerCase();
   const requiredPermission = requestedRole === 'user' ? 'roles.remove_admin' : 'roles.assign_admin';
   return requireDelegatedPermission(requiredPermission)(req, res, next);
 }, async (req, res) => {
+
+
+app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) => {
+
+
   try {
     const role = String((req.body && req.body.role) || '').trim().toLowerCase();
     if (!['user', 'admin'].includes(role)) {
@@ -594,6 +901,7 @@ app.patch('/api/superadmin/users/:id/role', (req, res, next) => {
     if (target.status !== 'active') {
       return res.status(400).json({ message: 'Approve the user before changing their role.' });
     }
+
     if (target.role === role) {
       return res.status(400).json({ message: `User already has the ${role} role.` });
     }
@@ -603,6 +911,11 @@ app.patch('/api/superadmin/users/:id/role', (req, res, next) => {
         : getUserPermissions(req.permissionActor)
       : [];
     const user = await setUserRole(req.params.id, role, permissions);
+
+
+    const user = await setUserRole(req.params.id, role);
+
+
     if (!user) {
       return res.status(404).json({ message: 'Active user not found.' });
     }
@@ -616,7 +929,15 @@ app.patch('/api/superadmin/users/:id/role', (req, res, next) => {
   }
 });
 
+
 app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('accounts.block'), async (req, res) => {
+
+
+app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('accounts.block'), async (req, res) => {
+
+app.patch('/api/superadmin/users/:id/block', requireSuperAdmin, async (req, res) => {
+
+
   try {
     const isBlocked = req.body && req.body.isBlocked;
     if (typeof isBlocked !== 'boolean') {
@@ -640,13 +961,22 @@ app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('account
   }
 });
 
+
 app.patch('/api/users/:id/status', requireDelegatedPermission('accounts.approve'), async (req, res) => {
+
+
+app.patch('/api/users/:id/status', requireDelegatedPermission('accounts.approve'), async (req, res) => {
+
+app.patch('/api/users/:id/status', requireSuperAdmin, async (req, res) => {
+
+
   try {
     const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
     if (requestedStatus !== 'active') {
       return res.status(400).json({ message: 'Superadmins can approve pending accounts by setting status to active.' });
     }
     const user = await approvePendingUser(req.params.id);
+
 
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
@@ -724,6 +1054,29 @@ app.put('/api/users/:id/permissions', requireDelegatedPermission('rights.manage'
   } catch (error) {
     console.error('Unable to update administrator rights:', error.message);
     return res.status(500).json({ message: 'Unable to update administrator rights.' });
+
+
+app.patch('/api/users/:id/status', requireAdmin, async (req, res) => {
+
+app.patch('/api/users/:id/status', async (req, res) => {
+
+  try {
+    const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
+    const user = await updateUserStatus(req.params.id, requestedStatus);
+
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    return res.json({
+      message: 'User status updated successfully.',
+      user: toResponseShape(user)
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Unable to update user status.', error: error.message });
+
+
   }
 });
 
@@ -760,4 +1113,20 @@ module.exports = {
   app,
   startServer,
   getServerPort: () => activePort
+
 };
+
+
+};
+
+
+};
+
+
+};
+
+};
+
+
+
+

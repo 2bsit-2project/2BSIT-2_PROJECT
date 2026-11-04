@@ -47,6 +47,7 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'rights.manage'
 ];
 
+
 const DASHBOARD_MODULES = [
   {
     id: 'users',
@@ -79,6 +80,7 @@ const DASHBOARD_MODULES = [
   }
 ];
 
+
 function normalizePermissions(permissions) {
   if (!Array.isArray(permissions)) {
     return [];
@@ -101,6 +103,7 @@ function getUserPermissions(user) {
   }
   return [...DEFAULT_ADMIN_PERMISSIONS];
 }
+
 
 function getDashboardModules(user) {
   const permissions = getUserPermissions(user);
@@ -131,12 +134,18 @@ function getDashboardModules(user) {
     }));
 }
 
+
 module.exports = {
   PERMISSION_MODULES,
   ALL_PERMISSIONS,
   DEFAULT_ADMIN_PERMISSIONS,
+
   DASHBOARD_MODULES,
   normalizePermissions,
   getUserPermissions,
   getDashboardModules
+
+  normalizePermissions,
+  getUserPermissions
+
 };
