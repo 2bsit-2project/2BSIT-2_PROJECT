@@ -1498,3 +1498,43 @@ SELECT
 FROM sales s
 LEFT JOIN customer c ON s.custno = c.custno
 LEFT JOIN employee e ON s.empno = e.empno;
+
+
+
+
+
+
+
+
+
+-- =================================---------------------------
+-- S1-DBA-06: STORED PROCEDURES & FINAL SPRINT WRAPPER
+-- =================================---------------------------
+
+-- 1. EXAMPLE STORED PROCEDURE FOR LOGGING SALES
+CREATE OR REPLACE PROCEDURE sp_insert_sale(
+    p_salesno VARCHAR(10),
+    p_custno VARCHAR(5),
+    p_empno VARCHAR(5),
+    p_total NUMERIC(12, 2)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO sales (salesno, custno, empno, sales_date, total_amount)
+    VALUES (p_salesno, p_custno, p_empno, CURRENT_DATE, p_total);
+    
+    INSERT INTO audit_log (table_name, action, record_id, changed_by)
+    VALUES ('sales', 'INSERT', p_salesno, current_user);
+END;
+$$;
+
+
+
+
+
+
+
+
+
+
