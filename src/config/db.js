@@ -8,9 +8,17 @@ const {
 
   NODE_ENV,
   ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  SUPERADMIN_EMAIL,
+  SUPERADMIN_PASSWORD
+
+
+  NODE_ENV,
+  ADMIN_EMAIL,
   ADMIN_PASSWORD
 
   NODE_ENV
+
 
 } = require('./env');
 const { hashPassword } = require('./security');
@@ -34,6 +42,10 @@ const inMemorySessions = new Map();
 
 const inMemoryPasswordResets = new Map();
 
+
+const inMemoryPasswordResets = new Map();
+
+
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -55,9 +67,11 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'user'");
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE');
 
+
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
+
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
@@ -96,19 +110,37 @@ async function initializeDatabase() {
 }
 
 async function connectDatabase() {
+
+  if (
+    ADMIN_EMAIL && SUPERADMIN_EMAIL
+    && ADMIN_EMAIL.trim().toLowerCase() === SUPERADMIN_EMAIL.trim().toLowerCase()
+  ) {
+    throw new Error('ADMIN_EMAIL and SUPERADMIN_EMAIL must be different accounts.');
+  }
+
+
   try {
     await pool.query('SELECT 1');
     const initialized = await initializeDatabase();
     if (!initialized) {
 
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+
+
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+
       return false;
     }
 
     await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
 
+    await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+
+
       return false;
     }
+
 
 
     console.log('Database connected successfully.');
@@ -121,9 +153,18 @@ async function connectDatabase() {
 
     try {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+    } catch (adminError) {
+      console.error('Unable to initialize configured privileged accounts:', adminError.message);
+    }
+
+
+    try {
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
     } catch (adminError) {
       console.error('Unable to initialize the configured admin account:', adminError.message);
     }
+
 
 
     return false;
@@ -159,6 +200,11 @@ function userRowToRecord(row) {
     role: row.role || 'user',
     isBlocked: Boolean(row.is_blocked),
 
+
+    role: row.role || 'user',
+    isBlocked: Boolean(row.is_blocked),
+
+
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
   };
 }
@@ -171,7 +217,11 @@ async function listUsers(statusFilter) {
 
     return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
+
+    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
     return records.map((user) => ({ ...user }));
+
 
   }
 
@@ -288,9 +338,12 @@ async function createUser(rawUser) {
         `INSERT INTO users (name, email, username, password, status, role, is_blocked)
          VALUES ($1, $2, $3, $4, $5, 'user', FALSE)
 
+
+
       const result = await pool.query(
         `INSERT INTO users (name, email, username, password, status)
          VALUES ($1, $2, $3, $4, $5)
+
 
          RETURNING *;`,
         [name, email, username, passwordHash, status]
@@ -326,6 +379,11 @@ async function createUser(rawUser) {
     isBlocked: false,
 
 
+    role: 'user',
+    isBlocked: false,
+
+
+
     createdAt: new Date().toISOString()
   };
 
@@ -341,14 +399,23 @@ async function ensurePrivilegedUser(email, password, role) {
     return null;
   }
   if (!normalizedEmail || adminPassword.length < 8) {
+
+    const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
+    throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
+
     throw new Error('Set both ADMIN_EMAIL and an ADMIN_PASSWORD of at least 8 characters.');
+
   }
 
   if (dbStatus === 'connected') {
     const existing = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     if (existing.rows[0]) {
       const result = await pool.query(
+
+        "UPDATE users SET role = $1, status = 'active', is_blocked = FALSE WHERE id = $2 RETURNING *",
+
         'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
+
         [role, existing.rows[0].id]
       );
       return userRowToRecord(result.rows[0]);
@@ -367,6 +434,10 @@ async function ensurePrivilegedUser(email, password, role) {
   const existing = inMemoryUsers.find((user) => user.email.toLowerCase() === normalizedEmail);
   if (existing) {
     existing.role = role;
+
+    existing.status = 'active';
+    existing.isBlocked = false;
+
     return { ...existing };
   }
 
@@ -690,6 +761,62 @@ async function updateUserStatus(userId, newStatus) {
   return { ...inMemoryUsers[userIndex] };
 }
 
+
+async function approvePendingUser(userId) {
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET status = 'active'
+       WHERE id = $1 AND status = 'pending'
+         AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [userId]
+    );
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId)
+    && item.status === 'pending'
+    && String(item.role || 'user').toLowerCase() !== 'superadmin'
+  );
+  if (!user) {
+    return null;
+  }
+  user.status = 'active';
+  return { ...user };
+}
+
+async function setUserRole(userId, role) {
+  if (!['user', 'admin'].includes(role)) {
+    const error = new Error('Role must be user or admin.');
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET role = $1
+       WHERE id = $2 AND status = 'active'
+         AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [role, userId]
+    );
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId)
+    && item.status === 'active'
+    && String(item.role || 'user').toLowerCase() !== 'superadmin'
+  );
+  if (!user) {
+    return null;
+  }
+  user.role = role;
+  return { ...user };
+}
+
+
 module.exports = {
   pool,
   connectDatabase,
@@ -710,6 +837,15 @@ module.exports = {
   deletePasswordResetTokens,
   resetPasswordWithToken,
 
+  createSession,
+  getSession,
+  deleteSession,
+  updateUserStatus,
+  approvePendingUser,
+  setUserRole
+};
+
+
   getUserById,
   getUserByEmail,
   createUser,
@@ -723,4 +859,5 @@ module.exports = {
 };
 
 };
+
 

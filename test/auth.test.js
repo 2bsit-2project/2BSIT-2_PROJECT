@@ -2,16 +2,31 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createHash } = require('node:crypto');
+process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
+process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
+
+const { app } = require('../src/app');
+const {
+  createPasswordResetToken,
+  resetPasswordWithToken,
+  ensureSuperAdminUser
+
+
+const { createHash } = require('node:crypto');
 const { app } = require('../src/app');
 const {
   createPasswordResetToken,
   resetPasswordWithToken
+
 } = require('../src/config/db');
 const { hashPassword, verifyPassword } = require('../src/config/security');
 const { emailConfigured } = require('../src/config/email');
 
+
+
 const { app } = require('../src/app');
 const { hashPassword, verifyPassword } = require('../src/config/security');
+
 
 
 test('passwords are hashed and can be verified', async () => {
@@ -41,6 +56,9 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(loginPage.status, 200);
     assert.match(await loginPage.text(), /Log in/);
 
+
+
+
     assert.equal((await fetch(`${baseUrl}/forgot-password`)).status, 200);
     assert.equal((await fetch(`${baseUrl}/reset-password`)).status, 200);
     if (!emailConfigured) {
@@ -54,6 +72,9 @@ test('registration, login, session check, and logout work', async () => {
 
 
 
+
+
+
     const registration = await fetch(`${baseUrl}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,6 +83,32 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(registration.status, 201);
     const registrationResult = await registration.json();
     assert.equal(Object.hasOwn(registrationResult.user, 'password'), false);
+
+
+    const pendingLogin = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'test-password' })
+    });
+    assert.equal(pendingLogin.status, 403);
+
+    await ensureSuperAdminUser(process.env.SUPERADMIN_EMAIL, process.env.SUPERADMIN_PASSWORD);
+    const superAdminLogin = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: process.env.SUPERADMIN_EMAIL,
+        password: process.env.SUPERADMIN_PASSWORD
+      })
+    });
+    assert.equal(superAdminLogin.status, 200);
+    const superAdminCookie = superAdminLogin.headers.get('set-cookie').split(';', 1)[0];
+    const approval = await fetch(`${baseUrl}/api/superadmin/users/${registrationResult.user.id}/approve`, {
+      method: 'PATCH',
+      headers: { Cookie: superAdminCookie }
+    });
+    assert.equal(approval.status, 200);
+
 
     const rejectedLogin = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
@@ -138,6 +185,7 @@ test('registration, login, session check, and logout work', async () => {
     });
     assert.equal(newPasswordLogin.status, 200);
 
+
     const logout = await fetch(`${baseUrl}/api/auth/logout`, {
       method: 'POST',
       headers: { Cookie: sessionCookie }
@@ -148,6 +196,7 @@ test('registration, login, session check, and logout work', async () => {
       headers: { Cookie: sessionCookie }
     });
     assert.equal(expiredSession.status, 401);
+
 
   } finally {
     await new Promise((resolve, reject) => {

@@ -83,7 +83,13 @@
       <div id="formStatus" class="status" aria-live="polite"></div>
 
       <p id="adminLink" hidden><a href="/admin/users">Open user management</a></p>
+      <p id="superAdminLink" hidden><a href="/superadmin/users">Open Superadmin console</a></p>
       <p><a href="/forgot-password">Forgot your password?</a></p>
+
+
+      <p id="adminLink" hidden><a href="/admin/users">Open user management</a></p>
+      <p><a href="/forgot-password">Forgot your password?</a></p>
+
 
       <p>Need an account? <a href="/register">Register</a>.</p>
     </main>
@@ -94,6 +100,11 @@
       const statusBox = document.getElementById('formStatus');
 
       const adminLink = document.getElementById('adminLink');
+      const superAdminLink = document.getElementById('superAdminLink');
+
+
+      const adminLink = document.getElementById('adminLink');
+
 
 
       function showStatus(message, type) {
@@ -109,6 +120,11 @@
           logoutButton.hidden = false;
 
           adminLink.hidden = result.user.role !== 'admin';
+          superAdminLink.hidden = result.user.role !== 'superadmin';
+
+
+          adminLink.hidden = result.user.role !== 'admin';
+
 
           showStatus(`Logged in as ${result.user.name}.`, 'success');
           return;
@@ -118,6 +134,11 @@
         logoutButton.hidden = true;
 
         adminLink.hidden = true;
+        superAdminLink.hidden = true;
+
+
+        adminLink.hidden = true;
+
 
       }
 
