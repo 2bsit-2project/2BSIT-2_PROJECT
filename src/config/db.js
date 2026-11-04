@@ -5,11 +5,21 @@ const {
   DB_NAME,
   DB_USER,
   DB_PASSWORD,
+
   NODE_ENV,
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
   SUPERADMIN_EMAIL,
   SUPERADMIN_PASSWORD
+
+
+  NODE_ENV,
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD
+
+  NODE_ENV
+
+
 } = require('./env');
 const { hashPassword } = require('./security');
 
@@ -29,7 +39,13 @@ let dbStatus = 'disconnected';
 let dbError = null;
 let inMemoryUsers = [];
 const inMemorySessions = new Map();
+
 const inMemoryPasswordResets = new Map();
+
+
+const inMemoryPasswordResets = new Map();
+
+
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -42,6 +58,7 @@ async function initializeDatabase() {
         username VARCHAR(255),
         password VARCHAR(255) NOT NULL,
         status VARCHAR(30) NOT NULL DEFAULT 'pending',
+
         role VARCHAR(30) NOT NULL DEFAULT 'user',
         is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -49,6 +66,13 @@ async function initializeDatabase() {
     `);
     await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'user'");
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE');
+
+
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
         token_hash CHAR(64) PRIMARY KEY,
@@ -60,6 +84,7 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx
       ON user_sessions (expires_at);
     `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         token_hash CHAR(64) PRIMARY KEY,
@@ -71,6 +96,7 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_idx
       ON password_reset_tokens (expires_at);
     `);
+
 
     dbStatus = 'connected';
     dbError = null;
@@ -84,6 +110,7 @@ async function initializeDatabase() {
 }
 
 async function connectDatabase() {
+
   if (
     ADMIN_EMAIL && SUPERADMIN_EMAIL
     && ADMIN_EMAIL.trim().toLowerCase() === SUPERADMIN_EMAIL.trim().toLowerCase()
@@ -91,17 +118,31 @@ async function connectDatabase() {
     throw new Error('ADMIN_EMAIL and SUPERADMIN_EMAIL must be different accounts.');
   }
 
+
   try {
     await pool.query('SELECT 1');
     const initialized = await initializeDatabase();
     if (!initialized) {
+
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+
+
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+
       return false;
     }
 
     await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+
     await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+
+
+      return false;
+    }
+
+
+
     console.log('Database connected successfully.');
     return true;
   } catch (error) {
@@ -109,12 +150,23 @@ async function connectDatabase() {
     dbError = error.message;
     console.warn('Database connection failed. Please ensure PostgreSQL is running and environment values are correct.');
     console.warn(error.message);
+
     try {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
     } catch (adminError) {
       console.error('Unable to initialize configured privileged accounts:', adminError.message);
     }
+
+
+    try {
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+    } catch (adminError) {
+      console.error('Unable to initialize the configured admin account:', adminError.message);
+    }
+
+
+
     return false;
   }
 }
@@ -144,8 +196,15 @@ function userRowToRecord(row) {
     username: row.username || row.email,
     password: row.password,
     status: row.status || 'pending',
+
     role: row.role || 'user',
     isBlocked: Boolean(row.is_blocked),
+
+
+    role: row.role || 'user',
+    isBlocked: Boolean(row.is_blocked),
+
+
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
   };
 }
@@ -155,7 +214,15 @@ async function listUsers(statusFilter) {
     const records = statusFilter
       ? inMemoryUsers.filter((user) => user.status === statusFilter)
       : [...inMemoryUsers];
+
     return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+
+    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    return records.map((user) => ({ ...user }));
+
+
   }
 
   try {
@@ -180,6 +247,7 @@ async function listUsers(statusFilter) {
   }
 }
 
+
 async function listManagedUsers(statusFilter) {
   if (dbStatus !== 'connected') {
     return inMemoryUsers
@@ -200,6 +268,7 @@ async function listManagedUsers(statusFilter) {
   const result = await pool.query(query, params);
   return result.rows.map(userRowToRecord);
 }
+
 
 async function getUserById(userId) {
   if (dbStatus !== 'connected') {
@@ -257,6 +326,7 @@ async function createUser(rawUser) {
 
   if (dbStatus === 'connected') {
     try {
+
       const duplicate = await pool.query('SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)', [email]);
       if (duplicate.rowCount) {
         const duplicateError = new Error('A user with this email already exists.');
@@ -267,6 +337,14 @@ async function createUser(rawUser) {
       const result = await pool.query(
         `INSERT INTO users (name, email, username, password, status, role, is_blocked)
          VALUES ($1, $2, $3, $4, $5, 'user', FALSE)
+
+
+
+      const result = await pool.query(
+        `INSERT INTO users (name, email, username, password, status)
+         VALUES ($1, $2, $3, $4, $5)
+
+
          RETURNING *;`,
         [name, email, username, passwordHash, status]
       );
@@ -296,14 +374,23 @@ async function createUser(rawUser) {
     username,
     password: passwordHash,
     status,
+
     role: 'user',
     isBlocked: false,
+
+
+    role: 'user',
+    isBlocked: false,
+
+
+
     createdAt: new Date().toISOString()
   };
 
   inMemoryUsers.unshift(newUser);
   return { ...newUser };
 }
+
 
 async function ensurePrivilegedUser(email, password, role) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -312,15 +399,23 @@ async function ensurePrivilegedUser(email, password, role) {
     return null;
   }
   if (!normalizedEmail || adminPassword.length < 8) {
+
     const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
     throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
+
+    throw new Error('Set both ADMIN_EMAIL and an ADMIN_PASSWORD of at least 8 characters.');
+
   }
 
   if (dbStatus === 'connected') {
     const existing = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     if (existing.rows[0]) {
       const result = await pool.query(
+
         "UPDATE users SET role = $1, status = 'active', is_blocked = FALSE WHERE id = $2 RETURNING *",
+
+        'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
+
         [role, existing.rows[0].id]
       );
       return userRowToRecord(result.rows[0]);
@@ -339,8 +434,10 @@ async function ensurePrivilegedUser(email, password, role) {
   const existing = inMemoryUsers.find((user) => user.email.toLowerCase() === normalizedEmail);
   if (existing) {
     existing.role = role;
+
     existing.status = 'active';
     existing.isBlocked = false;
+
     return { ...existing };
   }
 
@@ -453,6 +550,7 @@ async function setUserBlocked(userId, isBlocked) {
   return { ...user };
 }
 
+
 async function updateUserPassword(userId, password) {
   if (dbStatus === 'connected') {
     try {
@@ -467,6 +565,7 @@ async function updateUserPassword(userId, password) {
     user.password = password;
   }
 }
+
 
 async function createPasswordResetToken(tokenHash, userId, expiresAt) {
   if (dbStatus === 'connected') {
@@ -565,6 +664,7 @@ async function resetPasswordWithToken(tokenHash, passwordHash) {
   return true;
 }
 
+
 async function createSession(tokenHash, userId, expiresAt) {
   if (dbStatus === 'connected') {
     try {
@@ -661,6 +761,7 @@ async function updateUserStatus(userId, newStatus) {
   return { ...inMemoryUsers[userIndex] };
 }
 
+
 async function approvePendingUser(userId) {
   if (dbStatus === 'connected') {
     const result = await pool.query(
@@ -715,12 +816,14 @@ async function setUserRole(userId, role) {
   return { ...user };
 }
 
+
 module.exports = {
   pool,
   connectDatabase,
   initializeDatabase,
   getDbStatus,
   listUsers,
+
   listManagedUsers,
   getUserById,
   getUserByEmail,
@@ -733,6 +836,7 @@ module.exports = {
   createPasswordResetToken,
   deletePasswordResetTokens,
   resetPasswordWithToken,
+
   createSession,
   getSession,
   deleteSession,
@@ -740,3 +844,20 @@ module.exports = {
   approvePendingUser,
   setUserRole
 };
+
+
+  getUserById,
+  getUserByEmail,
+  createUser,
+  updateUserPassword,
+
+  createSession,
+  getSession,
+  deleteSession,
+  updateUserStatus
+
+};
+
+};
+
+
