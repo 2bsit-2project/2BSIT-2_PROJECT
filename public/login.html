@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta name="description" content="Sign in to your Hope, Inc. ERP account." />
+    <title>Log in | Hope, Inc. ERP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #182743;
+        --muted: #78869a;
+        --blue: #315ff4;
+        --blue-dark: #244fe0;
+        --border: #dce4ef;
+        --success: #087c53;
+        --error: #b42318;
+
     <title>Log in</title>
     <style>
       :root {
@@ -14,11 +28,171 @@
         --muted: #6b7280;
         --border: #d9e1ef;
         --success: #0a8f5b;
+
       }
 
       * { box-sizing: border-box; }
 
       body {
+
+        display: grid;
+        min-width: 320px;
+        min-height: 100vh;
+        place-items: center;
+        margin: 0;
+        padding: 28px 16px;
+        background:
+          radial-gradient(ellipse at 68% 42%, rgba(226, 234, 245, 0.8), transparent 35%),
+          #b5c1d0;
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      .card {
+        position: relative;
+        width: min(100%, 380px);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 17px;
+        padding: 25px 24px 23px;
+        background: #fff;
+        box-shadow: 0 18px 48px rgba(34, 50, 73, 0.13);
+      }
+
+      .close-link {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        display: grid;
+        width: 25px;
+        height: 25px;
+        place-items: center;
+        border-radius: 50%;
+        background: #f3f5f8;
+        color: #78869a;
+        font-size: 1rem;
+        line-height: 1;
+        text-decoration: none;
+      }
+
+      .close-link:hover { background: #e8edf4; color: var(--ink); }
+      .close-link:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(49, 95, 244, 0.25); outline-offset: 2px; }
+
+      h1 { margin: 0; font-size: 1.35rem; letter-spacing: -0.035em; }
+      .subtitle { margin: 7px 0 17px; color: var(--muted); font-size: 0.82rem; }
+
+      .notice {
+        margin: 0 0 18px;
+        border: 1px solid #f5df9e;
+        border-radius: 11px;
+        padding: 11px 12px;
+        background: #fffbed;
+        color: #8a6421;
+        font-size: 0.72rem;
+        line-height: 1.5;
+      }
+
+      .notice strong { color: #674b17; }
+      form { display: grid; gap: 14px; }
+      label { display: grid; gap: 7px; color: #263650; font-size: 0.76rem; font-weight: 600; }
+
+      input {
+        width: 100%;
+        min-height: 41px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 11px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 400;
+      }
+
+      input::placeholder { color: #9aa5b5; }
+      input:focus { border-color: #6d8bff; outline: 3px solid rgba(49, 95, 244, 0.1); }
+
+      .password-wrap { position: relative; }
+      .password-wrap input { padding-right: 43px; }
+
+      .password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 7px;
+        display: grid;
+        width: 30px;
+        height: 30px;
+        transform: translateY(-50%);
+        place-items: center;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #7d8ba0;
+        cursor: pointer;
+      }
+
+      .password-toggle:hover { background: #f2f5fa; color: var(--ink); }
+
+      .form-options {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        margin-top: -3px;
+      }
+
+      .form-options a, .footer a { color: var(--blue); font-size: 0.73rem; font-weight: 600; text-decoration: none; }
+      .form-options a:hover, .footer a:hover { text-decoration: underline; }
+
+      .submit-button {
+        min-height: 43px;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: var(--blue);
+        box-shadow: 0 5px 12px rgba(49, 95, 244, 0.2);
+        color: #fff;
+        font: inherit;
+        font-size: 0.83rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 150ms ease, transform 150ms ease;
+      }
+
+      .submit-button:hover { transform: translateY(-1px); background: var(--blue-dark); }
+      .submit-button:disabled { cursor: wait; opacity: 0.7; transform: none; }
+
+      .status {
+        display: none;
+        margin-top: 14px;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.5;
+      }
+
+      .status.success { display: block; background: #eaf8f1; color: var(--success); }
+      .status.error { display: block; background: #fff0ef; color: var(--error); }
+
+      .account-links { display: grid; gap: 9px; margin-top: 13px; font-size: 0.78rem; }
+      .account-links p { margin: 0; color: var(--muted); }
+      .account-links a { color: var(--blue); font-weight: 600; text-decoration: none; }
+      .account-links a:hover { text-decoration: underline; }
+
+      .footer { margin: 18px 0 0; color: var(--muted); font-size: 0.76rem; text-align: center; }
+      .footer a { font-size: inherit; }
+      #logoutButton { margin-top: 14px; border: 0; background: transparent; color: var(--blue); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+      #logoutButton:hover { text-decoration: underline; }
+      #logoutButton:disabled { cursor: wait; opacity: 0.6; }
+      [hidden] { display: none !important; }
+
+      @media (max-width: 420px) {
+        .card { padding: 24px 20px 21px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+      }
+
         margin: 0;
         min-height: 100vh;
         display: grid;
@@ -58,10 +232,26 @@
       .status.success { display: block; background: rgba(10, 143, 91, 0.08); color: var(--success); }
       .status.error { display: block; background: rgba(220, 38, 38, 0.08); color: #b91c1c; }
       [hidden] { display: none !important; }
+
     </style>
   </head>
   <body>
     <main class="card">
+
+      <a class="close-link" href="/" aria-label="Close sign in and return home">×</a>
+      <h1>Welcome back</h1>
+      <p class="subtitle">Sign in to your Hope, Inc. ERP account</p>
+
+      <p class="notice">
+        Sign in with your registered email and password. New accounts start as
+        <strong>User</strong> and need administrator approval before signing in.
+      </p>
+
+      <form id="loginForm">
+        <label>
+          Email address
+          <input type="email" name="email" autocomplete="username" placeholder="you@example.com" required />
+
       <h1>Log in</h1>
       <p>Sign in to your InfoMan account.</p>
 
@@ -69,10 +259,36 @@
         <label>
           Email
           <input type="email" name="email" autocomplete="username" required />
+
         </label>
 
         <label>
           Password
+
+          <span class="password-wrap">
+            <input id="passwordInput" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required />
+            <button id="passwordToggle" class="password-toggle" type="button" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path d="M2.5 12s3.2-6 9.5-6 9.5 6 9.5 6-3.2 6-9.5 6-9.5-6-9.5-6Z"></path>
+                <circle cx="12" cy="12" r="2.5"></circle>
+              </svg>
+            </button>
+          </span>
+        </label>
+
+        <div class="form-options"><a href="/forgot-password">Forgot password?</a></div>
+        <button id="submitButton" class="submit-button" type="submit">Sign In</button>
+      </form>
+
+      <button id="logoutButton" type="button" hidden>Log out</button>
+      <div id="formStatus" class="status" role="status" aria-live="polite"></div>
+      <div class="account-links">
+        <p id="dashboardLink" hidden><a href="/dashboard">Open dashboard</a></p>
+        <p id="adminLink" hidden><a href="/admin/users">Open user management</a></p>
+        <p id="superAdminLink" hidden><a href="/superadmin/users">Open account management</a></p>
+      </div>
+      <p class="footer">Don’t have an account? <a href="/register">Register</a></p>
+
           <input type="password" name="password" autocomplete="current-password" required />
         </label>
 
@@ -98,11 +314,22 @@
 
 
       <p>Need an account? <a href="/register">Register</a>.</p>
+
     </main>
 
     <script>
       const form = document.getElementById('loginForm');
       const logoutButton = document.getElementById('logoutButton');
+
+      const submitButton = document.getElementById('submitButton');
+      const passwordInput = document.getElementById('passwordInput');
+      const passwordToggle = document.getElementById('passwordToggle');
+      const statusBox = document.getElementById('formStatus');
+      const dashboardLink = document.getElementById('dashboardLink');
+      const adminLink = document.getElementById('adminLink');
+      const superAdminLink = document.getElementById('superAdminLink');
+
+
       const statusBox = document.getElementById('formStatus');
 
       const adminLink = document.getElementById('adminLink');
@@ -119,6 +346,7 @@
 
 
 
+
       function showStatus(message, type) {
         statusBox.className = `status ${type}`;
         statusBox.textContent = message;
@@ -131,10 +359,15 @@
           form.hidden = true;
           logoutButton.hidden = false;
 
+          dashboardLink.hidden = false;
+
+
+
           adminLink.hidden = result.user.role !== 'admin'
             || !result.user.permissions.includes('users.view');
           superAdminLink.hidden = result.user.role !== 'superadmin'
             && !result.user.permissions.includes('accounts.view');
+
 
 
           adminLink.hidden = result.user.role !== 'admin';
@@ -145,12 +378,26 @@
 
 
 
+
           showStatus(`Logged in as ${result.user.name}.`, 'success');
           return;
         }
 
         form.hidden = false;
         logoutButton.hidden = true;
+
+        dashboardLink.hidden = true;
+        adminLink.hidden = true;
+        superAdminLink.hidden = true;
+      }
+
+      passwordToggle.addEventListener('click', () => {
+        const isVisible = passwordInput.type === 'text';
+        passwordInput.type = isVisible ? 'password' : 'text';
+        passwordToggle.setAttribute('aria-pressed', String(!isVisible));
+        passwordToggle.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+      });
+
 
         adminLink.hidden = true;
         superAdminLink.hidden = true;
@@ -166,10 +413,15 @@
 
       }
 
+
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         statusBox.className = 'status';
         statusBox.textContent = '';
+
+        submitButton.disabled = true;
+
+
 
         try {
           const response = await fetch('/api/auth/login', {
@@ -183,13 +435,28 @@
           }
 
           form.reset();
+
+          passwordInput.type = 'password';
+          passwordToggle.setAttribute('aria-pressed', 'false');
+          passwordToggle.setAttribute('aria-label', 'Show password');
+          await refreshSession();
+        } catch (error) {
+          showStatus(error.message || 'Unable to log in.', 'error');
+        } finally {
+          submitButton.disabled = false;
+
           await refreshSession();
         } catch (error) {
           showStatus(error.message, 'error');
+
         }
       });
 
       logoutButton.addEventListener('click', async () => {
+
+        logoutButton.disabled = true;
+
+
         try {
           const response = await fetch('/api/auth/logout', { method: 'POST' });
           const result = await response.json();
@@ -200,7 +467,13 @@
           await refreshSession();
           showStatus(result.message, 'success');
         } catch (error) {
+
+          showStatus(error.message || 'Unable to log out.', 'error');
+        } finally {
+          logoutButton.disabled = false;
+
           showStatus(error.message, 'error');
+
         }
       });
 

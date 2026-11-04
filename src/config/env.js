@@ -42,9 +42,15 @@ module.exports = {
   SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
   SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
 
+
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
+  SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
+  SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
+
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || ''
 
   DB_PASSWORD: process.env.DB_PASSWORD || 'postgres'
+
 
 
 

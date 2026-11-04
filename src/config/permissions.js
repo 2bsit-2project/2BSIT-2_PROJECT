@@ -47,6 +47,40 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'rights.manage'
 ];
 
+
+const DASHBOARD_MODULES = [
+  {
+    id: 'users',
+    label: 'User management',
+    description: 'Create user accounts and manage user details and access.',
+    href: '/admin/users',
+    requires: ['users.view']
+  },
+  {
+    id: 'accounts',
+    label: 'Account approvals',
+    description: 'Review pending accounts and manage account access.',
+    href: '/superadmin/users#accounts',
+    requires: ['accounts.view']
+  },
+  {
+    id: 'roles',
+    label: 'Role management',
+    description: 'Assign or remove administrator roles.',
+    href: '/superadmin/users#roles',
+    requires: ['accounts.view'],
+    anyOf: ['roles.assign_admin', 'roles.remove_admin']
+  },
+  {
+    id: 'rights',
+    label: 'Rights management',
+    description: 'Set action-level permissions for administrators.',
+    requires: [],
+    anyOf: ['rights.manage']
+  }
+];
+
+
 function normalizePermissions(permissions) {
   if (!Array.isArray(permissions)) {
     return [];
@@ -70,10 +104,48 @@ function getUserPermissions(user) {
   return [...DEFAULT_ADMIN_PERMISSIONS];
 }
 
+
+function getDashboardModules(user) {
+  const permissions = getUserPermissions(user);
+  return DASHBOARD_MODULES
+    .filter((module) =>
+      (module.id !== 'rights'
+        ? module.requires.every((permission) => permissions.includes(permission))
+        : permissions.includes(user.role === 'admin' ? 'users.view' : 'accounts.view'))
+      && (module.id !== 'rights' || permissions.includes('rights.manage'))
+      && (!module.anyOf || module.anyOf.some((permission) => permissions.includes(permission)))
+    )
+    .map((module) => ({
+      id: module.id,
+      label: module.label,
+      description: module.description,
+      href: module.id === 'users' && user.role === 'superadmin'
+        ? '/superadmin/users#accounts'
+        : module.id === 'rights' && user.role === 'admin'
+          ? '/admin/users#rights'
+          : module.id === 'rights'
+            ? '/superadmin/users#rights'
+            : module.href,
+      actions: PERMISSION_MODULES
+        .find((permissionModule) => permissionModule.id === module.id)
+        .actions
+        .filter((action) => permissions.includes(`${module.id}.${action.id}`))
+        .map((action) => action.label)
+    }));
+}
+
+
 module.exports = {
   PERMISSION_MODULES,
   ALL_PERMISSIONS,
   DEFAULT_ADMIN_PERMISSIONS,
+
+  DASHBOARD_MODULES,
+  normalizePermissions,
+  getUserPermissions,
+  getDashboardModules
+
   normalizePermissions,
   getUserPermissions
+
 };

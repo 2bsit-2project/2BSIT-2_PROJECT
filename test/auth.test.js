@@ -14,11 +14,14 @@ const {
 
 
 
+
+
 const { createHash } = require('node:crypto');
 const { app } = require('../src/app');
 const {
   createPasswordResetToken,
   resetPasswordWithToken
+
 
 
 } = require('../src/config/db');
@@ -29,8 +32,11 @@ const { emailConfigured } = require('../src/config/email');
 
 
 
+
+
 const { app } = require('../src/app');
 const { hashPassword, verifyPassword } = require('../src/config/security');
+
 
 
 
@@ -186,6 +192,8 @@ test('registration, login, session check, and logout work', async () => {
 
 
 
+
+
     const logout = await fetch(`${baseUrl}/api/auth/logout`, {
       method: 'POST',
       headers: { Cookie: sessionCookie }
@@ -196,6 +204,7 @@ test('registration, login, session check, and logout work', async () => {
       headers: { Cookie: sessionCookie }
     });
     assert.equal(expiredSession.status, 401);
+
 
 
 

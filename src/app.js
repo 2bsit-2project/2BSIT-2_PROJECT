@@ -7,7 +7,9 @@ const {
   getDbStatus,
 
 
+
   listUsers,
+
 
 
 
@@ -21,8 +23,14 @@ const {
   setUserRole,
   setUserPermissions,
 
+
   approvePendingUser,
   setUserRole,
+  setUserPermissions,
+
+  approvePendingUser,
+  setUserRole,
+
 
 
 
@@ -43,10 +51,17 @@ const {
   ALL_PERMISSIONS,
   DEFAULT_ADMIN_PERMISSIONS,
   normalizePermissions,
+
+  getUserPermissions,
+  getDashboardModules
+
   getUserPermissions
+
 } = require('./config/permissions');
 const { hashPassword, verifyPassword } = require('./config/security');
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
+
 
 
 const { hashPassword, verifyPassword } = require('./config/security');
@@ -67,6 +82,7 @@ const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
 const { hashPassword, verifyPassword } = require('./config/security');
 
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
 
 
 
@@ -120,10 +136,16 @@ function toResponseShape(user) {
 
     role: user.role || 'user',
     isBlocked: Boolean(user.isBlocked),
+    permissions: getUserPermissions(user),
 
 
     role: user.role || 'user',
     isBlocked: Boolean(user.isBlocked),
+
+
+    role: user.role || 'user',
+    isBlocked: Boolean(user.isBlocked),
+
 
 
 
@@ -144,6 +166,11 @@ const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
 
 
 const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
+
+
+const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
 
 
 
@@ -230,6 +257,31 @@ function requireDelegatedPermission(permission) {
 }
 
 
+function requireAuthenticatedPage(req, res, next) {
+  getAuthenticatedUser(req).then((user) => {
+    if (!user || user.isBlocked) {
+      return res.redirect('/login');
+    }
+    req.pageUser = user;
+    return next();
+  }).catch((error) => {
+    console.error('Unable to verify page access:', error.message);
+    return res.status(500).send('Unable to verify page access.');
+  });
+}
+
+function requireModulePage(permission, roles) {
+  return (req, res, next) => {
+    const user = req.pageUser;
+    if (!roles.includes(user.role) || !getUserPermissions(user).includes(permission)) {
+      return res.status(403).send('You do not have permission to open this module.');
+    }
+    return next();
+  };
+}
+
+
+
 
 async function requireAdmin(req, res, next) {
   try {
@@ -274,12 +326,17 @@ async function requireSuperAdmin(req, res, next) {
 
 
 
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 
+app.get('/api', (req, res) => {
+
+
 app.get('/', (req, res) => {
+
   res.json({
     name: 'InfoMan',
     status: 'ok',
@@ -292,6 +349,35 @@ app.get('/', (req, res) => {
     }
   });
 });
+
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'homepage.html'));
+});
+
+app.get('/dashboard', requireAuthenticatedPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+});
+
+app.get('/api/dashboard/modules', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Please log in to continue.' });
+    }
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked.' });
+    }
+    return res.json({
+      user: toResponseShape(user),
+      modules: getDashboardModules(user)
+    });
+  } catch (error) {
+    console.error('Unable to load dashboard modules:', error.message);
+    return res.status(500).json({ message: 'Unable to load dashboard modules.' });
+  }
+});
+
 
 app.get('/health', async (req, res) => {
   const dbStatus = getDbStatus();
@@ -321,6 +407,25 @@ app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'reset-password.html'));
 });
 
+
+app.get(
+  '/admin/users',
+  requireAuthenticatedPage,
+  requireModulePage('users.view', ['admin']),
+  (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
+  }
+);
+
+app.get(
+  '/superadmin/users',
+  requireAuthenticatedPage,
+  requireModulePage('accounts.view', ['admin', 'superadmin']),
+  (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'superadmin-users.html'));
+  }
+);
+
 app.get('/admin/users', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
 });
@@ -329,6 +434,7 @@ app.get('/admin/users', (req, res) => {
 app.get('/superadmin/users', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'superadmin-users.html'));
 });
+
 
 
 app.get('/api/auth/session', async (req, res) => {
@@ -430,9 +536,12 @@ app.post('/api/auth/login', async (req, res) => {
 
 
 
+
+
     if (user.isBlocked) {
       return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
     }
+
 
 
 
@@ -472,6 +581,8 @@ app.get(['/api/users', '/users'], requireAdminPermission('users.view'), async (r
     const items = await listManagedUsers(status);
 
 
+
+
 app.get(['/api/users', '/users'], requireAdmin, async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
@@ -485,6 +596,7 @@ app.get(['/api/users', '/users'], async (req, res) => {
 
 
 
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -493,6 +605,11 @@ app.get(['/api/users', '/users'], async (req, res) => {
     res.status(500).json({ message: 'Unable to fetch users.', error: error.message });
   }
 });
+
+
+app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.view'), async (req, res) => {
+  try {
+    const items = await listManagedUsers('pending');
 
 
 app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.view'), async (req, res) => {
@@ -514,6 +631,7 @@ app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
 
 
 
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -530,6 +648,8 @@ app.get('/api/users/:id', requireAdminPermission('users.view'), async (req, res)
     if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
 
 
+
+
 app.get('/api/users/:id', requireAdmin, async (req, res) => {
   try {
     const user = await getUserById(req.params.id);
@@ -539,6 +659,7 @@ app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await getUserById(req.params.id);
     if (!user) {
+
 
 
 
@@ -564,6 +685,11 @@ async function registerUser(req, res) {
 
 
     payload.status = 'pending';
+
+
+
+    payload.status = 'pending';
+
 
 
 
@@ -597,7 +723,11 @@ app.post(['/api/users', '/api/users/register', '/api/register', '/users/register
 app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, res) => {
 
 
+app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, res) => {
+
+
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
+
 
   try {
     const users = await listManagedUsers();
@@ -611,7 +741,11 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/users', requireAdminPermission('users.create'), async (req, res) => {
 
+
+app.post('/api/admin/users', requireAdminPermission('users.create'), async (req, res) => {
+
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
+
 
   try {
     const name = String((req.body && req.body.name) || '').trim();
@@ -641,7 +775,11 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
 
 app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (req, res) => {
 
+
+app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (req, res) => {
+
 app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
+
 
   try {
     const name = String((req.body && req.body.name) || '').trim();
@@ -667,7 +805,11 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
 
 app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), async (req, res) => {
 
+
+app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), async (req, res) => {
+
 app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
+
 
   try {
     const isBlocked = req.body && req.body.isBlocked;
@@ -697,7 +839,11 @@ app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
 app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), async (req, res) => {
 
 
+app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), async (req, res) => {
+
+
 app.get('/api/superadmin/users', requireSuperAdmin, async (req, res) => {
+
 
   try {
     const users = await listManagedUsers();
@@ -714,7 +860,11 @@ app.get('/api/superadmin/users', requireSuperAdmin, async (req, res) => {
 
 app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accounts.approve'), async (req, res) => {
 
+
+app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accounts.approve'), async (req, res) => {
+
 app.patch('/api/superadmin/users/:id/approve', requireSuperAdmin, async (req, res) => {
+
 
   try {
     const user = await approvePendingUser(req.params.id);
@@ -735,7 +885,9 @@ app.patch('/api/superadmin/users/:id/role', (req, res, next) => {
   return requireDelegatedPermission(requiredPermission)(req, res, next);
 }, async (req, res) => {
 
+
 app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) => {
+
 
   try {
     const role = String((req.body && req.body.role) || '').trim().toLowerCase();
@@ -760,7 +912,9 @@ app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) 
       : [];
     const user = await setUserRole(req.params.id, role, permissions);
 
+
     const user = await setUserRole(req.params.id, role);
+
 
     if (!user) {
       return res.status(404).json({ message: 'Active user not found.' });
@@ -778,7 +932,11 @@ app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) 
 
 app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('accounts.block'), async (req, res) => {
 
+
+app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('accounts.block'), async (req, res) => {
+
 app.patch('/api/superadmin/users/:id/block', requireSuperAdmin, async (req, res) => {
+
 
   try {
     const isBlocked = req.body && req.body.isBlocked;
@@ -806,7 +964,11 @@ app.patch('/api/superadmin/users/:id/block', requireSuperAdmin, async (req, res)
 
 app.patch('/api/users/:id/status', requireDelegatedPermission('accounts.approve'), async (req, res) => {
 
+
+app.patch('/api/users/:id/status', requireDelegatedPermission('accounts.approve'), async (req, res) => {
+
 app.patch('/api/users/:id/status', requireSuperAdmin, async (req, res) => {
+
 
   try {
     const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
@@ -893,6 +1055,7 @@ app.put('/api/users/:id/permissions', requireDelegatedPermission('rights.manage'
     console.error('Unable to update administrator rights:', error.message);
     return res.status(500).json({ message: 'Unable to update administrator rights.' });
 
+
 app.patch('/api/users/:id/status', requireAdmin, async (req, res) => {
 
 app.patch('/api/users/:id/status', async (req, res) => {
@@ -912,6 +1075,7 @@ app.patch('/api/users/:id/status', async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: 'Unable to update user status.', error: error.message });
+
 
   }
 });
@@ -958,7 +1122,11 @@ module.exports = {
 
 };
 
+
 };
+
+};
+
 
 
 

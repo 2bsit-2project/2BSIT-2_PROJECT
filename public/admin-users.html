@@ -139,6 +139,10 @@
     <header>
       <a href="/">InfoMan</a>
       <nav class="header-links">
+
+        <a href="/dashboard">Dashboard</a>
+
+
         <a href="/register">Registration</a>
         <a href="/login">Account</a>
       </nav>
@@ -166,7 +170,11 @@
 
           <section id="userFormPanel" class="panel">
 
+
+          <section id="userFormPanel" class="panel">
+
           <section class="panel">
+
 
             <h2 id="formTitle">Add user</h2>
             <form id="userForm">
@@ -201,8 +209,13 @@
                   <tr>
                     <th scope="col">User</th>
                     <th scope="col">Status</th>
+
+                    <th id="roles" scope="col">Role</th>
+                    <th id="rights" scope="col">Actions</th>
+
                     <th scope="col">Role</th>
                     <th scope="col">Actions</th>
+
                   </tr>
                 </thead>
                 <tbody id="userRows"></tbody>
@@ -237,6 +250,10 @@
 
       const userFormPanel = document.getElementById('userFormPanel');
 
+
+      const userFormPanel = document.getElementById('userFormPanel');
+
+
       const formTitle = document.getElementById('formTitle');
       const nameInput = document.getElementById('nameInput');
       const emailInput = document.getElementById('emailInput');
@@ -252,6 +269,11 @@
       let editingUserId = null;
 
       let currentUser = null;
+
+
+
+      let currentUser = null;
+
 
 
       function showStatus(message, type) {
@@ -343,6 +365,8 @@
             actions.append(rightsButton);
           }
 
+
+
           const editButton = document.createElement('button');
           editButton.type = 'button';
           editButton.className = 'secondary';
@@ -358,6 +382,7 @@
           blockButton.title = user.role === 'admin' ? 'Administrator accounts cannot be blocked.' : '';
           blockButton.addEventListener('click', () => changeBlockStatus(user));
           actions.append(blockButton);
+
 
           addCell(row, actions);
           userRows.append(row);
@@ -463,6 +488,11 @@
 
           currentUser = session.user;
           userFormPanel.hidden = !currentUser.permissions.includes('users.create');
+
+
+          currentUser = session.user;
+          userFormPanel.hidden = !currentUser.permissions.includes('users.create');
+
 
           await loadUsers();
           accessMessage.hidden = true;

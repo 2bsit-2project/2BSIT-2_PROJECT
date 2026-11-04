@@ -151,7 +151,14 @@
   <body>
     <header>
       <a href="/">InfoMan</a>
+
+      <nav class="header-links">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/login">Account</a>
+      </nav>
+
       <a href="/login">Account</a>
+
     </header>
 
     <main>
@@ -174,7 +181,11 @@
         <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
 
         <section class="panel">
+
+          <h2 id="accounts">Accounts</h2>
+
           <h2>Accounts</h2>
+
           <div class="table-tools">
             <input id="searchInput" type="search" placeholder="Search name or email" aria-label="Search users" />
             <span id="userCount" class="count">0 accounts</span>
@@ -185,9 +196,15 @@
                 <tr>
                   <th scope="col">User</th>
                   <th scope="col">Approval</th>
+
+                  <th id="roles" scope="col">Role</th>
+                  <th scope="col">Access</th>
+                  <th id="rights" scope="col">Actions</th>
+
                   <th scope="col">Role</th>
                   <th scope="col">Access</th>
                   <th scope="col">Actions</th>
+
                 </tr>
               </thead>
               <tbody id="userRows"></tbody>
@@ -331,6 +348,8 @@
             ));
           }
 
+
+
           if (user.status === 'pending') {
             actions.append(createActionButton('Approve', 'approve', () => approveUser(user)));
           } else if (user.status === 'active') {
@@ -345,6 +364,7 @@
             user.isBlocked ? 'secondary' : 'danger',
             () => changeBlockStatus(user)
           ));
+
 
           addCell(row, actions);
           userRows.append(row);
@@ -435,8 +455,14 @@
           if (!can('accounts.view')) {
             accessText.textContent = 'You do not have permission to view account approvals.';
 
+
+          currentUser = session.user;
+          if (!can('accounts.view')) {
+            accessText.textContent = 'You do not have permission to view account approvals.';
+
           if (session.user.role !== 'superadmin') {
             accessText.textContent = 'This console is available to Superadmins only.';
+
 
             return;
           }
