@@ -6,7 +6,8 @@ uses random, server-side session tokens.
 
 ## Features
 
-- `GET /` and `GET /dashboard` signed-in dashboard with role- and rights-filtered module tiles
+- `GET /` public product homepage
+- `GET /dashboard` signed-in dashboard with role- and rights-filtered module tiles
 - `GET /api` application metadata
 - `GET /api/dashboard/modules` list modules available to the signed-in user
 - `GET /health` application and database status

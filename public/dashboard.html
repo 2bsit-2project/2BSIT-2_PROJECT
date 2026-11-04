@@ -7,17 +7,18 @@
     <style>
       :root {
         color-scheme: light;
-        --bg: #f4f7fc;
+        --bg: #b7c3d2;
+        --sidebar: #0e1d2c;
         --panel: #ffffff;
-        --primary: #2f6fed;
-        --primary-dark: #1a4ec2;
-        --text: #1f2937;
-        --muted: #64748b;
-        --border: #dce4ef;
+        --primary: #3158e8;
+        --text: #17263f;
+        --muted: #728096;
+        --border: #e2e8f0;
         --danger: #b42318;
       }
 
       * { box-sizing: border-box; }
+
       body {
         display: grid;
         grid-template-columns: 248px minmax(0, 1fr);
@@ -25,150 +26,379 @@
         margin: 0;
         background: var(--bg);
         color: var(--text);
-        font-family: Arial, sans-serif;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
+
       aside {
         display: flex;
+        position: sticky;
+        top: 0;
+        height: 100vh;
         flex-direction: column;
         gap: 28px;
-        padding: 26px 18px;
-        background: var(--panel);
-        border-right: 1px solid var(--border);
+        padding: 25px 19px 18px;
+        background: var(--sidebar);
+        color: #e8eef8;
       }
-      .brand { padding: 0 12px; color: var(--primary); font-size: 1.35rem; font-weight: 800; text-decoration: none; }
-      .nav-label { margin: 0 12px 8px; color: var(--muted); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-      nav { display: grid; gap: 5px; }
-      nav a, .sidebar-link {
+
+      .brand {
         display: flex;
         align-items: center;
-        gap: 11px;
-        border-radius: 9px;
-        padding: 11px 12px;
-        color: var(--text);
-        font-size: 0.93rem;
+        gap: 10px;
+        padding: 0;
+        color: #f2f6fc;
+        font-size: 0.9rem;
         font-weight: 600;
         text-decoration: none;
       }
-      nav a:hover, nav a[aria-current="page"] { background: #edf3ff; color: var(--primary-dark); }
-      .nav-icon {
+
+      .brand-mark {
         display: grid;
-        width: 27px;
-        height: 27px;
-        flex: 0 0 27px;
+        width: 31px;
+        height: 31px;
         place-items: center;
         border-radius: 8px;
-        background: #edf3ff;
-        color: var(--primary-dark);
-        font-size: 0.72rem;
+        background: #16bfd0;
+        color: white;
+        font-size: 1.05rem;
         font-weight: 800;
       }
-      .sidebar-bottom { margin-top: auto; }
+
+      .sidebar-nav { display: grid; gap: 22px; }
+      .nav-section { display: grid; gap: 7px; }
+
+      .nav-label {
+        margin: 0 0 3px;
+        color: #8190a3;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      nav { display: grid; gap: 5px; }
+
+      nav a {
+        display: flex;
+        min-height: 40px;
+        align-items: center;
+        gap: 11px;
+        border-radius: 8px;
+        padding: 8px 10px;
+        color: #aeb9c8;
+        font-size: 0.83rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background 150ms ease, color 150ms ease;
+      }
+
+      nav a:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+      nav a[aria-current="page"] { background: var(--primary); color: #fff; }
+
+      .nav-icon {
+        display: grid;
+        width: 20px;
+        height: 20px;
+        flex: 0 0 20px;
+        place-items: center;
+        color: currentColor;
+        font-size: 0.83rem;
+      }
+
+      .sidebar-bottom {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 14px;
+      }
+
+      .avatar {
+        display: grid;
+        width: 31px;
+        height: 31px;
+        flex: 0 0 31px;
+        place-items: center;
+        border-radius: 50%;
+        background: #263648;
+        color: #eaf0f8;
+        font-size: 0.74rem;
+        font-weight: 700;
+      }
+
       .account {
         overflow-wrap: anywhere;
-        margin: 0 12px 10px;
-        color: var(--muted);
-        font-size: 0.86rem;
-        line-height: 1.5;
+        min-width: 0;
+        flex: 1;
+        margin: 0;
+        color: #eff3f8;
+        font-size: 0.75rem;
+        line-height: 1.35;
       }
-      .account strong { display: block; color: var(--text); font-size: 0.95rem; }
-      button {
-        width: 100%;
+
+      .account span { display: block; color: #8492a5; font-size: 0.68rem; }
+
+      .logout-button {
         border: 0;
-        border-radius: 9px;
-        padding: 11px 12px;
-        background: #e9eef6;
-        color: var(--text);
+        border-radius: 7px;
+        padding: 7px;
+        background: transparent;
+        color: #96a4b7;
         font: inherit;
-        font-weight: 700;
+        font-size: 0.72rem;
         cursor: pointer;
       }
-      button:hover { background: #dce4ef; }
-      button:disabled { cursor: wait; opacity: 0.6; }
-      main { width: min(1120px, calc(100% - 48px)); margin: 42px auto; }
-      .eyebrow { margin: 0 0 8px; color: var(--primary-dark); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-      h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.45rem); }
-      .intro { margin: 12px 0 30px; color: var(--muted); line-height: 1.55; }
-      h2 { margin: 0 0 15px; font-size: 1.1rem; }
-      .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 16px; }
-      .module-card {
-        display: flex;
-        min-height: 205px;
-        flex-direction: column;
-        align-items: flex-start;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 20px;
-        background: var(--panel);
-        box-shadow: 0 8px 24px rgba(31, 41, 55, 0.04);
-        color: inherit;
-        text-decoration: none;
+
+      .logout-button:hover { background: rgba(255, 255, 255, 0.08); color: white; }
+      .logout-button:disabled { cursor: wait; opacity: 0.6; }
+
+      main {
+        width: min(100%, 1500px);
+        min-width: 0;
+        margin: 0 auto;
+        padding: 30px clamp(22px, 3vw, 42px) 42px;
       }
-      .module-card:hover { border-color: #9db9f5; box-shadow: 0 12px 28px rgba(47, 111, 237, 0.1); transform: translateY(-2px); }
-      .module-card:focus-visible, nav a:focus-visible, button:focus-visible { outline: 3px solid rgba(47, 111, 237, 0.35); outline-offset: 2px; }
-      .module-icon {
+
+      .page-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: clamp(52px, 8vw, 105px);
+      }
+
+      h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 1.7rem); letter-spacing: -0.035em; }
+
+      .role-badge {
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 999px;
+        padding: 7px 12px;
+        background: rgba(255, 255, 255, 0.8);
+        color: #546277;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .welcome-banner {
+        position: relative;
+        overflow: hidden;
+        border-radius: 14px;
+        padding: 28px clamp(20px, 3vw, 34px);
+        background: #3158e8;
+        box-shadow: 0 10px 24px rgba(41, 76, 195, 0.16);
+        color: white;
+      }
+
+      .welcome-banner::before,
+      .welcome-banner::after {
+        position: absolute;
+        top: -72px;
+        right: 0;
+        width: 176px;
+        height: 176px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 50%;
+        content: "";
+      }
+
+      .welcome-banner::after { top: -47px; right: 24px; width: 126px; height: 126px; }
+      .banner-ring { position: absolute; top: -22px; right: 50px; width: 76px; height: 76px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 50%; }
+
+      .eyebrow {
+        position: relative;
+        z-index: 1;
+        margin: 0 0 9px;
+        color: #dfe7ff;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before { display: inline-block; width: 16px; height: 2px; margin: 0 8px 3px 0; background: #39d6dc; content: ""; }
+      .welcome-banner h2 { position: relative; z-index: 1; margin: 0; font-size: clamp(1.35rem, 2.5vw, 1.8rem); letter-spacing: -0.03em; }
+      .welcome-banner p:last-child { position: relative; z-index: 1; margin: 7px 0 0; color: #dce5ff; font-size: 0.81rem; line-height: 1.5; }
+
+      .overview { margin-top: 28px; }
+      .section-heading { margin: 0 0 13px; font-size: 1rem; letter-spacing: -0.02em; }
+
+      .stat-grid {
         display: grid;
-        width: 42px;
-        height: 42px;
-        place-items: center;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .stat-card {
+        min-width: 0;
+        min-height: 122px;
+        border: 1px solid rgba(226, 232, 240, 0.9);
         border-radius: 12px;
-        background: #edf3ff;
-        color: var(--primary-dark);
+        padding: 15px;
+        background: var(--panel);
+        box-shadow: 0 7px 18px rgba(34, 49, 72, 0.04);
+      }
+
+      .stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .stat-label { overflow: hidden; color: var(--muted); font-size: 0.73rem; text-overflow: ellipsis; white-space: nowrap; }
+
+      .stat-icon {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+        place-items: center;
+        border-radius: 8px;
+        background: #edf1ff;
+        color: var(--primary);
         font-size: 0.85rem;
         font-weight: 800;
       }
-      .module-card h3 { margin: 17px 0 7px; font-size: 1.08rem; }
-      .module-card p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
-      .module-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 15px; }
-      .action-chip { border-radius: 999px; padding: 5px 8px; background: #f0f3f8; color: #46556b; font-size: 0.72rem; font-weight: 700; }
+
+      .stat-value { display: block; overflow: hidden; margin-top: 12px; font-size: clamp(1.25rem, 2.3vw, 1.7rem); font-weight: 750; letter-spacing: -0.04em; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+
+      .quick-actions { margin-top: clamp(42px, 6vw, 72px); }
+      .quick-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+
+      .module-card {
+        position: relative;
+        display: flex;
+        min-height: 105px;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        padding: 13px;
+        background: var(--panel);
+        box-shadow: 0 6px 15px rgba(34, 49, 72, 0.035);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+      }
+
+      .module-card:hover { transform: translateY(-2px); border-color: #9db4f5; box-shadow: 0 10px 22px rgba(49, 88, 232, 0.1); }
+      .module-card h3 { margin: 0; font-size: 0.78rem; font-weight: 650; line-height: 1.35; }
+      .module-icon { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 8px; background: #edf1ff; color: var(--primary); font-size: 0.82rem; font-weight: 800; }
+      .module-arrow { position: absolute; top: 14px; right: 13px; color: #718098; font-size: 0.8rem; }
+
       .empty-state, .status {
         border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 18px;
+        border-radius: 10px;
+        padding: 14px;
         background: var(--panel);
         color: var(--muted);
+        font-size: 0.85rem;
         line-height: 1.5;
       }
-      .status { display: none; margin-bottom: 18px; border-color: #f2c7c3; background: #fff0ef; color: var(--danger); }
+
+      .status { display: none; margin: 18px 0; border-color: #f2c7c3; background: #fff0ef; color: var(--danger); }
       .status.visible { display: block; }
+      .empty-state { margin: 0; }
+      .module-card:focus-visible, nav a:focus-visible, button:focus-visible, .brand:focus-visible { outline: 3px solid rgba(49, 88, 232, 0.45); outline-offset: 3px; }
       [hidden] { display: none !important; }
-      @media (max-width: 720px) {
+
+      @media (max-width: 1050px) {
+        body { grid-template-columns: 220px minmax(0, 1fr); }
+        aside { padding-right: 15px; padding-left: 15px; }
+        .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .quick-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+      }
+
+      @media (max-width: 680px) {
         body { grid-template-columns: 1fr; }
-        aside { gap: 14px; padding: 15px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
-        .brand { padding: 0 4px; }
+        aside { position: static; height: auto; gap: 16px; padding: 14px 16px; }
+        .sidebar-nav { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; }
+        .nav-section { flex: 0 0 auto; }
         .nav-label { display: none; }
-        nav { display: flex; overflow-x: auto; }
-        nav a { flex: 0 0 auto; padding: 8px; }
-        .nav-icon { display: none; }
-        .sidebar-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .account { margin: 0; }
-        .sidebar-bottom button { width: auto; }
-        main { width: min(100% - 32px, 1120px); margin: 28px auto; }
+        nav { display: flex; gap: 5px; }
+        nav a { min-height: 36px; flex: 0 0 auto; padding: 7px 9px; }
+        .sidebar-bottom { display: none; }
+        main { padding: 23px 16px 32px; }
+        .page-heading { margin-bottom: 48px; }
+        .welcome-banner { padding: 22px 18px; }
+        .stat-grid { gap: 9px; }
+        .stat-card { min-height: 105px; padding: 11px; }
+        .stat-value { margin-top: 10px; }
+        .quick-actions { margin-top: 38px; }
+      }
+
+      @media (max-width: 400px) {
+        .stat-grid { grid-template-columns: 1fr 1fr; }
+        .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
       }
     </style>
   </head>
   <body>
     <aside aria-label="Main navigation">
-      <a class="brand" href="/">InfoMan</a>
-      <div>
-        <p class="nav-label">Workspace</p>
-        <nav id="moduleNavigation" aria-label="Modules">
-          <a href="/" aria-current="page"><span class="nav-icon">H</span>Dashboard</a>
-        </nav>
+      <a class="brand" href="/" aria-label="Hope, Inc. ERP home">
+        <span class="brand-mark" aria-hidden="true">H</span>
+        <span>Hope, Inc. ERP</span>
+      </a>
+      <div class="sidebar-nav">
+        <section class="nav-section" aria-label="Dashboard">
+          <nav>
+            <a href="/dashboard" aria-current="page"><span class="nav-icon" aria-hidden="true">▦</span>Dashboard</a>
+          </nav>
+        </section>
+        <section class="nav-section" aria-labelledby="workspaceLabel">
+          <p id="workspaceLabel" class="nav-label">Modules</p>
+          <nav id="moduleNavigation" aria-label="Modules"></nav>
+        </section>
       </div>
       <div class="sidebar-bottom">
+        <span id="accountAvatar" class="avatar" aria-hidden="true">U</span>
         <p id="accountInfo" class="account">Loading account…</p>
-        <button id="logoutButton" type="button">Log out</button>
+        <button id="logoutButton" class="logout-button" type="button" aria-label="Log out">↪</button>
       </div>
     </aside>
 
     <main>
-      <p class="eyebrow">Workspace</p>
-      <h1 id="welcomeHeading">Welcome</h1>
-      <p class="intro">Open a module available to your account. Access is based on your role and assigned rights.</p>
+      <header class="page-heading">
+        <h1>Dashboard</h1>
+        <span id="roleBadge" class="role-badge">Account</span>
+      </header>
       <div id="loadStatus" class="status" role="alert"></div>
-      <section aria-labelledby="modulesHeading">
-        <h2 id="modulesHeading">Your modules</h2>
-        <div id="moduleGrid" class="module-grid" aria-live="polite"></div>
+      <section class="welcome-banner" aria-labelledby="welcomeHeading">
+        <span class="banner-ring" aria-hidden="true"></span>
+        <p class="eyebrow">Your connected workspace</p>
+        <h2 id="welcomeHeading">Welcome back!</h2>
+        <p>You can access the modules and actions assigned to your account.</p>
+      </section>
+
+      <section class="overview" aria-labelledby="overviewHeading">
+        <h2 id="overviewHeading" class="section-heading">Business overview</h2>
+        <div class="stat-grid">
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Account role</span><span class="stat-icon" aria-hidden="true">♙</span></div>
+            <strong id="roleStat" class="stat-value">—</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Available modules</span><span class="stat-icon" aria-hidden="true">▦</span></div>
+            <strong id="moduleStat" class="stat-value">—</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Available actions</span><span class="stat-icon" aria-hidden="true">✓</span></div>
+            <strong id="actionStat" class="stat-value">—</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Account status</span><span class="stat-icon" aria-hidden="true">●</span></div>
+            <strong id="statusStat" class="stat-value">—</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="quick-actions" aria-labelledby="modulesHeading">
+        <h2 id="modulesHeading" class="section-heading">Quick Actions</h2>
+        <div id="moduleGrid" class="quick-grid" aria-live="polite"></div>
         <p id="emptyState" class="empty-state" hidden>No modules are assigned to your account yet. Contact your administrator if you need access.</p>
       </section>
     </main>
@@ -179,34 +409,32 @@
       const emptyState = document.getElementById('emptyState');
       const loadStatus = document.getElementById('loadStatus');
       const accountInfo = document.getElementById('accountInfo');
+      const accountAvatar = document.getElementById('accountAvatar');
 
       function addModuleLink(container, module, isCard) {
         const link = document.createElement('a');
         link.href = module.href;
+        const iconText = {
+          users: '♙',
+          accounts: '✓',
+          roles: '♧',
+          rights: '⚙'
+        }[module.id] || module.label.slice(0, 1).toUpperCase();
+        const icon = document.createElement('span');
+        icon.className = isCard ? 'module-icon' : 'nav-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = iconText;
+
         if (isCard) {
           link.className = 'module-card';
-          const icon = document.createElement('span');
-          icon.className = 'module-icon';
-          icon.setAttribute('aria-hidden', 'true');
-          icon.textContent = module.label.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase();
           const title = document.createElement('h3');
           title.textContent = module.label;
-          const description = document.createElement('p');
-          description.textContent = module.description;
-          const actions = document.createElement('span');
-          actions.className = 'module-meta';
-          for (const action of module.actions) {
-            const chip = document.createElement('span');
-            chip.className = 'action-chip';
-            chip.textContent = action;
-            actions.append(chip);
-          }
-          link.append(icon, title, description, actions);
+          const arrow = document.createElement('span');
+          arrow.className = 'module-arrow';
+          arrow.setAttribute('aria-hidden', 'true');
+          arrow.textContent = '↗';
+          link.append(icon, title, arrow);
         } else {
-          const icon = document.createElement('span');
-          icon.className = 'nav-icon';
-          icon.setAttribute('aria-hidden', 'true');
-          icon.textContent = module.label[0].toUpperCase();
           link.append(icon, document.createTextNode(module.label));
         }
         container.append(link);
@@ -223,11 +451,19 @@
           throw new Error(result.message || 'Unable to load your modules.');
         }
 
-        document.getElementById('welcomeHeading').textContent = `Welcome, ${result.user.name}`;
+        document.getElementById('welcomeHeading').textContent = `Welcome back, ${result.user.name}!`;
+        document.getElementById('roleBadge').textContent = result.user.role;
+        document.getElementById('roleStat').textContent = result.user.role;
+        document.getElementById('moduleStat').textContent = result.modules.length;
+        document.getElementById('actionStat').textContent = result.modules
+          .reduce((total, module) => total + module.actions.length, 0);
+        document.getElementById('statusStat').textContent = result.user.status;
+        accountAvatar.textContent = result.user.name.trim().charAt(0).toUpperCase() || 'U';
         accountInfo.replaceChildren();
-        const name = document.createElement('strong');
-        name.textContent = result.user.name;
-        accountInfo.append(name, document.createTextNode(result.user.role));
+        accountInfo.append(document.createTextNode(result.user.name));
+        const role = document.createElement('span');
+        role.textContent = result.user.role;
+        accountInfo.append(role);
         for (const module of result.modules) {
           addModuleLink(navigation, module, false);
           addModuleLink(moduleGrid, module, true);

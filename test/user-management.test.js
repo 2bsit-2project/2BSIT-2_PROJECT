@@ -35,7 +35,10 @@ test('admin can manage users while regular users cannot', async () => {
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
   try {
-    const anonymousDashboard = await fetch(`${baseUrl}/`, { redirect: 'manual' });
+    const homepage = await fetch(`${baseUrl}/`);
+    assert.equal(homepage.status, 200);
+    assert.match(await homepage.text(), /One platform\. Every possibility\./);
+    const anonymousDashboard = await fetch(`${baseUrl}/dashboard`, { redirect: 'manual' });
     assert.equal(anonymousDashboard.status, 302);
     assert.equal(anonymousDashboard.headers.get('location'), '/login');
     const anonymousDashboardModules = await fetch(`${baseUrl}/api/dashboard/modules`);
@@ -59,11 +62,11 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(adminLogin.status, 200);
     const adminCookie = adminLogin.headers.get('set-cookie').split(';', 1)[0];
     const adminUser = (await adminLogin.json()).user;
-    const adminDashboard = await fetch(`${baseUrl}/`, {
+    const adminDashboard = await fetch(`${baseUrl}/dashboard`, {
       headers: { Cookie: adminCookie }
     });
     assert.equal(adminDashboard.status, 200);
-    assert.match(await adminDashboard.text(), /Your modules/);
+    assert.match(await adminDashboard.text(), /Quick Actions/);
     const adminModulesResponse = await fetch(`${baseUrl}/api/dashboard/modules`, {
       headers: { Cookie: adminCookie }
     });

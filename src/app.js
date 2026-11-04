@@ -206,7 +206,11 @@ app.get('/api', (req, res) => {
   });
 });
 
-app.get(['/', '/dashboard'], requireAuthenticatedPage, (req, res) => {
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'homepage.html'));
+});
+
+app.get('/dashboard', requireAuthenticatedPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });
 

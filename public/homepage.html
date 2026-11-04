@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Hope, Inc. ERP brings your customers, products, people, and sales together in one workspace." />
+    <title>Hope, Inc. ERP | One platform for your business</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172541;
+        --muted: #68778c;
+        --blue: #315ff4;
+        --line: #e4eaf2;
+        --surface: #fff;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        background:
+          radial-gradient(ellipse at 82% 32%, rgba(223, 236, 239, 0.9), transparent 34%),
+          linear-gradient(120deg, #c0cad9 0%, #b4c1d0 54%, #aec6d0 100%);
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      a { color: inherit; }
+
+      .page-shell {
+        width: min(100% - 48px, 1440px);
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 32px 0 42px;
+      }
+
+      .topbar {
+        display: flex;
+        min-height: 62px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.68);
+        border-radius: 17px;
+        padding: 10px 15px;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: 0 10px 30px rgba(34, 54, 81, 0.06);
+        backdrop-filter: blur(12px);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        font-size: 1rem;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 31px;
+        height: 31px;
+        place-items: center;
+        border-radius: 9px;
+        background: #15bfd0;
+        box-shadow: 0 4px 10px rgba(21, 191, 208, 0.24);
+        color: white;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+
+      .topbar nav {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+
+      .sign-in {
+        color: #53627a;
+        font-size: 0.84rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .sign-in:hover { color: var(--blue); }
+
+      .button {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        border-radius: 999px;
+        padding: 0 20px;
+        background: var(--blue);
+        box-shadow: 0 7px 15px rgba(49, 95, 244, 0.2);
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .button:hover { transform: translateY(-2px); background: #244fe0; }
+      .button:focus-visible, .sign-in:focus-visible, .brand:focus-visible { outline: 3px solid #163db8; outline-offset: 4px; }
+      .button-small { min-height: 37px; padding: 0 18px; font-size: 0.82rem; }
+      .button-light { background: #fff; box-shadow: 0 5px 15px rgba(31, 48, 73, 0.1); color: #35445e; }
+      .button-light:hover { background: #f5f8ff; }
+
+      .hero {
+        display: grid;
+        min-height: 460px;
+        grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+        align-items: center;
+        gap: clamp(30px, 5vw, 75px);
+        padding: 62px 18px 48px;
+      }
+
+      .hero-copy { max-width: 530px; }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 0 0 22px;
+        color: #526579;
+        font-size: 0.69rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #15bfd0;
+        content: "";
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2.6rem, 5.2vw, 4rem);
+        letter-spacing: -0.065em;
+        line-height: 1.02;
+      }
+
+      h1 span { color: #2852bc; }
+
+      .hero-description {
+        max-width: 490px;
+        margin: 22px 0 27px;
+        color: #596a81;
+        font-size: 1rem;
+        line-height: 1.65;
+      }
+
+      .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+      .reassurance { margin: 16px 0 0; color: #738378; font-size: 0.76rem; }
+      .reassurance span { margin-right: 7px; color: #688f7b; font-weight: 800; }
+
+      .preview-wrap {
+        position: relative;
+        width: 100%;
+        max-width: 610px;
+        justify-self: end;
+        padding: 22px 12px 28px 0;
+      }
+
+      .preview-shadow {
+        position: absolute;
+        z-index: 0;
+        inset: 52px 0 0 26px;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 22px 35px rgba(36, 53, 78, 0.12);
+        transform: rotate(2deg);
+      }
+
+      .preview {
+        position: relative;
+        z-index: 1;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.86);
+        border-radius: 15px;
+        background: #f8faff;
+        box-shadow: 0 18px 36px rgba(31, 46, 70, 0.18);
+        transform: rotate(-2.2deg);
+      }
+
+      .preview-bar {
+        display: flex;
+        height: 40px;
+        align-items: center;
+        gap: 5px;
+        padding: 0 15px;
+        background: #172541;
+      }
+
+      .window-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff8f85; }
+      .window-dot:nth-child(2) { background: #f8c56d; }
+      .window-dot:nth-child(3) { background: #55c99b; }
+      .preview-title { margin-left: 9px; color: #edf2ff; font-size: 0.65rem; }
+      .preview-dots { margin-left: auto; color: #c9d4e9; letter-spacing: 2px; }
+
+      .preview-content { padding: clamp(16px, 3vw, 27px); }
+      .preview-content h2 { margin: 0 0 5px; font-size: clamp(0.94rem, 2vw, 1.2rem); }
+      .preview-content > p { margin: 0 0 17px; color: #8491a4; font-size: 0.72rem; }
+
+      .module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+      .module-card {
+        min-height: 100px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 13px;
+        background: var(--surface);
+        box-shadow: 0 4px 12px rgba(36, 53, 78, 0.05);
+      }
+
+      .module-icon {
+        display: grid;
+        width: 27px;
+        height: 27px;
+        place-items: center;
+        border-radius: 8px;
+        background: #eaf0ff;
+        color: #4168e9;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+
+      .module-card:nth-child(2) .module-icon { background: #e5fafb; color: #10a6b5; }
+      .module-card:nth-child(3) .module-icon { background: #f3edff; color: #9a6be6; }
+      .module-card:nth-child(4) .module-icon { background: #e6f8f1; color: #32a77a; }
+      .module-card h3 { margin: 9px 0 4px; font-size: 0.81rem; }
+      .module-card p { margin: 0; color: #8a96a8; font-size: 0.65rem; }
+
+      .preview-footer {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 16px;
+        color: #99a4b4;
+        font-size: 0.56rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .preview-footer span:last-child { color: #44a985; }
+
+      .features {
+        padding: 36px 12px 0;
+        text-align: center;
+      }
+
+      .features h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -0.04em; }
+      .features > p { margin: 8px 0 0; color: #6b7b90; font-size: 0.95rem; }
+
+      .feature-list {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 28px;
+        text-align: left;
+      }
+
+      .feature {
+        border: 1px solid rgba(255, 255, 255, 0.65);
+        border-radius: 13px;
+        padding: 17px;
+        background: rgba(255, 255, 255, 0.4);
+      }
+
+      .feature h3 { margin: 0 0 7px; font-size: 0.92rem; }
+      .feature p { margin: 0; color: #607087; font-size: 0.8rem; line-height: 1.5; }
+
+      @media (max-width: 800px) {
+        .hero { grid-template-columns: 1fr; gap: 20px; padding: 54px 10px 32px; }
+        .hero-copy { max-width: 620px; }
+        .preview-wrap { width: min(100%, 600px); justify-self: center; }
+        .feature-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .features { padding-top: 22px; }
+      }
+
+      @media (max-width: 520px) {
+        .page-shell { width: min(100% - 28px, 1440px); padding-top: 14px; }
+        .topbar { min-height: 56px; padding: 8px 10px; }
+        .brand { gap: 8px; font-size: 0.87rem; }
+        .brand-mark { width: 29px; height: 29px; }
+        .topbar nav { gap: 12px; }
+        .sign-in { font-size: 0.78rem; }
+        .button-small { min-height: 34px; padding: 0 13px; font-size: 0.76rem; }
+        .hero { min-height: unset; padding: 50px 2px 25px; }
+        h1 { font-size: clamp(2.55rem, 13vw, 3.8rem); }
+        .hero-description { font-size: 0.92rem; }
+        .button { min-height: 42px; padding: 0 16px; font-size: 0.82rem; }
+        .preview-wrap { padding-right: 4px; }
+        .module-grid { gap: 8px; }
+        .module-card { min-height: 91px; padding: 10px; }
+        .preview-content { padding: 15px; }
+        .feature-list { grid-template-columns: 1fr; }
+        .features { padding: 25px 0 0; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Hope, Inc. ERP home">
+          <span class="brand-mark" aria-hidden="true">H</span>
+          <span>Hope, Inc. ERP</span>
+        </a>
+        <nav aria-label="Account">
+          <a class="sign-in" href="/login">Sign In</a>
+          <a class="button button-small" href="/register">Register</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow">One platform. Every possibility.</p>
+            <h1 id="hero-title">Run your entire<br />business<br /><span>with confidence</span></h1>
+            <p class="hero-description">
+              Hope, Inc. ERP unifies Customer Management, Product Catalog,
+              Human Resources, and Sales into one powerful platform. Built for
+              teams of every size.
+            </p>
+            <div class="hero-actions">
+              <a class="button" href="/login">Sign In to Dashboard <span aria-hidden="true">→</span></a>
+              <a class="button button-light" href="/register">Register</a>
+            </div>
+            <p class="reassurance"><span aria-hidden="true">✓</span>Less complexity. More possibility.</p>
+          </div>
+
+          <div class="preview-wrap" aria-label="Preview of the Hope ERP workspace">
+            <div class="preview-shadow" aria-hidden="true"></div>
+            <div class="preview">
+              <div class="preview-bar" aria-hidden="true">
+                <span class="window-dot"></span>
+                <span class="window-dot"></span>
+                <span class="window-dot"></span>
+                <span class="preview-title">Hope, Inc. ERP Dashboard</span>
+                <span class="preview-dots">•••</span>
+              </div>
+              <div class="preview-content">
+                <h2>Your business, at a glance</h2>
+                <p>One connected workspace. Endless potential.</p>
+                <div class="module-grid">
+                  <article class="module-card">
+                    <span class="module-icon" aria-hidden="true">◎</span>
+                    <h3>Customers</h3>
+                    <p>Manage contacts &amp; accounts</p>
+                  </article>
+                  <article class="module-card">
+                    <span class="module-icon" aria-hidden="true">◇</span>
+                    <h3>Products</h3>
+                    <p>Catalog &amp; inventory</p>
+                  </article>
+                  <article class="module-card">
+                    <span class="module-icon" aria-hidden="true">▣</span>
+                    <h3>Human Resources</h3>
+                    <p>Employees &amp; payroll</p>
+                  </article>
+                  <article class="module-card">
+                    <span class="module-icon" aria-hidden="true">↗</span>
+                    <h3>Sales</h3>
+                    <p>Orders &amp; revenue</p>
+                  </article>
+                </div>
+                <div class="preview-footer"><span>Hope workspace</span><span>● All systems ready</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="features" aria-labelledby="features-title">
+          <h2 id="features-title">Everything you need to grow</h2>
+          <p>Four core modules. Three user roles. One unified system.</p>
+          <div class="feature-list">
+            <article class="feature">
+              <h3>Customer Management</h3>
+              <p>Keep customer accounts and relationships organized in one place.</p>
+            </article>
+            <article class="feature">
+              <h3>Product Catalog</h3>
+              <p>Manage your products and keep catalog details easy to find.</p>
+            </article>
+            <article class="feature">
+              <h3>Human Resources</h3>
+              <p>Give your team a dedicated place for people operations.</p>
+            </article>
+            <article class="feature">
+              <h3>Sales</h3>
+              <p>Bring orders and sales activity into your business workspace.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
