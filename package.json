@@ -1,11 +1,12 @@
 {
   "name": "infoman",
   "version": "1.0.0",
-  "description": "Project scaffold for the InfoMan application",
+  "description": "InfoMan application with user registration support",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
   },
   "keywords": [
     "express",
