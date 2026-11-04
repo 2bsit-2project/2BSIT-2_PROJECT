@@ -1,0 +1,9 @@
+Sprint 1 Test Cases: Automated Smoke Test
+
+Task: S1-TST-05
+Project: Hope, Inc. ERP
+
+1. Test Cases: Automated Smoke Test (Login & Main Page)
+- TC-SMK-01: Automated login script execution -> Verify that the automated test script successfully launches the browser, enters valid credentials, and submits the login form without errors.
+- TC-SMK-02: Dashboard load verification -> Verify that upon successful login, the main dashboard page loads correctly, displaying key summary cards (customers, products, open orders, revenue) and the correct role-based navigation sidebar.
+- TC-SMK-03: Quick action navigation -> Verify that the automated script can successfully click through quick action buttons on the main page to ensure core routes are responsive and functional.
