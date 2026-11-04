@@ -1457,3 +1457,84 @@ CREATE TABLE priceHist (
     new_price NUMERIC(10, 2),
     effective_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+
+
+
+
+
+
+
+
+-- =================================---------------------------
+-- S1-DBA-05: CONSTRAINTS, INDEXES, & REPORTING VIEWS
+-- =================================---------------------------
+
+-- 1. ADDITIONAL INDEXES FOR PERFORMANCE
+CREATE INDEX IF NOT EXISTS idx_employee_dept ON employee(deptno);
+CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sales_date);
+CREATE INDEX IF NOT EXISTS idx_sales_cust ON sales(custno);
+
+-- 2. REPORTING VIEWS
+CREATE OR REPLACE VIEW vw_employee_details AS
+SELECT 
+    e.empno,
+    e.lastname,
+    e.firstname,
+    e.gender,
+    e.hiredate,
+    d.name AS department_name
+FROM employee e
+LEFT JOIN department d ON e.deptno = d.deptno;
+
+CREATE OR REPLACE VIEW vw_sales_summary AS
+SELECT 
+    s.salesno,
+    s.sales_date,
+    c.custname,
+    e.lastname AS employee_lastname,
+    s.total_amount
+FROM sales s
+LEFT JOIN customer c ON s.custno = c.custno
+LEFT JOIN employee e ON s.empno = e.empno;
+
+
+
+
+
+
+
+
+
+-- =================================---------------------------
+-- S1-DBA-06: STORED PROCEDURES & FINAL SPRINT WRAPPER
+-- =================================---------------------------
+
+-- 1. EXAMPLE STORED PROCEDURE FOR LOGGING SALES
+CREATE OR REPLACE PROCEDURE sp_insert_sale(
+    p_salesno VARCHAR(10),
+    p_custno VARCHAR(5),
+    p_empno VARCHAR(5),
+    p_total NUMERIC(12, 2)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO sales (salesno, custno, empno, sales_date, total_amount)
+    VALUES (p_salesno, p_custno, p_empno, CURRENT_DATE, p_total);
+    
+    INSERT INTO audit_log (table_name, action, record_id, changed_by)
+    VALUES ('sales', 'INSERT', p_salesno, current_user);
+END;
+$$;
+
+
+
+
+
+
+
+
+
+
