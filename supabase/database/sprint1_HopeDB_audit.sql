@@ -1349,3 +1349,51 @@ INSERT INTO customer (custno, custname, address, city, phone) VALUES
 INSERT INTO product (prodno, prodname, unit_price, stock_qty) VALUES
 ('P01', 'Standard Widget', 150.00, 100),
 ('P02', 'Premium Gadget', 450.00, 50);
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- =================================---------------------------
+-- S1-DBA-03: APP_USER, ROLE, MODULE, & RIGHTS CATALOGUE
+-- =================================---------------------------
+
+DROP TABLE IF EXISTS rights CASCADE;
+DROP TABLE IF EXISTS module CASCADE;
+DROP TABLE IF EXISTS role CASCADE;
+DROP TABLE IF EXISTS app_user CASCADE;
+
+CREATE TABLE role (
+    role_id VARCHAR(5) PRIMARY KEY,
+    rolename VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE module (
+    module_id VARCHAR(5) PRIMARY KEY,
+    modulename VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE app_user (
+    user_id VARCHAR(5) PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role_id VARCHAR(5) REFERENCES role(role_id) ON DELETE SET NULL,
+    is_blocked BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE rights (
+    right_id VARCHAR(5) PRIMARY KEY,
+    role_id VARCHAR(5) REFERENCES role(role_id) ON DELETE CASCADE,
+    module_id VARCHAR(5) REFERENCES module(module_id) ON DELETE CASCADE,
+    can_read BOOLEAN DEFAULT FALSE,
+    can_write BOOLEAN DEFAULT FALSE,
+    can_delete BOOLEAN DEFAULT FALSE
+);
