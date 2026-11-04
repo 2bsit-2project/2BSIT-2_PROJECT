@@ -5,7 +5,13 @@ const {
   DB_NAME,
   DB_USER,
   DB_PASSWORD,
+
+  NODE_ENV,
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD
+
   NODE_ENV
+
 } = require('./env');
 const { hashPassword } = require('./security');
 
@@ -25,6 +31,9 @@ let dbStatus = 'disconnected';
 let dbError = null;
 let inMemoryUsers = [];
 const inMemorySessions = new Map();
+
+const inMemoryPasswordResets = new Map();
+
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -37,9 +46,19 @@ async function initializeDatabase() {
         username VARCHAR(255),
         password VARCHAR(255) NOT NULL,
         status VARCHAR(30) NOT NULL DEFAULT 'pending',
+
+        role VARCHAR(30) NOT NULL DEFAULT 'user',
+        is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'user'");
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE');
+
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
         token_hash CHAR(64) PRIMARY KEY,
@@ -51,6 +70,19 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx
       ON user_sessions (expires_at);
     `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token_hash CHAR(64) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_idx
+      ON password_reset_tokens (expires_at);
+    `);
+
 
     dbStatus = 'connected';
     dbError = null;
@@ -68,8 +100,16 @@ async function connectDatabase() {
     await pool.query('SELECT 1');
     const initialized = await initializeDatabase();
     if (!initialized) {
+
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       return false;
     }
+
+    await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+      return false;
+    }
+
 
     console.log('Database connected successfully.');
     return true;
@@ -78,6 +118,14 @@ async function connectDatabase() {
     dbError = error.message;
     console.warn('Database connection failed. Please ensure PostgreSQL is running and environment values are correct.');
     console.warn(error.message);
+
+    try {
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+    } catch (adminError) {
+      console.error('Unable to initialize the configured admin account:', adminError.message);
+    }
+
+
     return false;
   }
 }
@@ -107,6 +155,10 @@ function userRowToRecord(row) {
     username: row.username || row.email,
     password: row.password,
     status: row.status || 'pending',
+
+    role: row.role || 'user',
+    isBlocked: Boolean(row.is_blocked),
+
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
   };
 }
@@ -116,7 +168,11 @@ async function listUsers(statusFilter) {
     const records = statusFilter
       ? inMemoryUsers.filter((user) => user.status === statusFilter)
       : [...inMemoryUsers];
+
+    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
     return records.map((user) => ({ ...user }));
+
   }
 
   try {
@@ -140,6 +196,29 @@ async function listUsers(statusFilter) {
     return records.map((user) => ({ ...user }));
   }
 }
+
+
+async function listManagedUsers(statusFilter) {
+  if (dbStatus !== 'connected') {
+    return inMemoryUsers
+      .filter((user) => String(user.role || 'user').toLowerCase() !== 'superadmin')
+      .filter((user) => !statusFilter || user.status === statusFilter)
+      .map((user) => ({ ...user }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  const params = [];
+  let query = "SELECT * FROM users WHERE LOWER(COALESCE(role, 'user')) <> 'superadmin'";
+  if (statusFilter) {
+    params.push(statusFilter);
+    query += ' AND status = $1';
+  }
+  query += ' ORDER BY created_at DESC';
+
+  const result = await pool.query(query, params);
+  return result.rows.map(userRowToRecord);
+}
+
 
 async function getUserById(userId) {
   if (dbStatus !== 'connected') {
@@ -197,9 +276,22 @@ async function createUser(rawUser) {
 
   if (dbStatus === 'connected') {
     try {
+
+      const duplicate = await pool.query('SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+      if (duplicate.rowCount) {
+        const duplicateError = new Error('A user with this email already exists.');
+        duplicateError.code = 'DUPLICATE_EMAIL';
+        throw duplicateError;
+      }
+
+      const result = await pool.query(
+        `INSERT INTO users (name, email, username, password, status, role, is_blocked)
+         VALUES ($1, $2, $3, $4, $5, 'user', FALSE)
+
       const result = await pool.query(
         `INSERT INTO users (name, email, username, password, status)
          VALUES ($1, $2, $3, $4, $5)
+
          RETURNING *;`,
         [name, email, username, passwordHash, status]
       );
@@ -229,12 +321,164 @@ async function createUser(rawUser) {
     username,
     password: passwordHash,
     status,
+
+    role: 'user',
+    isBlocked: false,
+
+
     createdAt: new Date().toISOString()
   };
 
   inMemoryUsers.unshift(newUser);
   return { ...newUser };
 }
+
+
+async function ensurePrivilegedUser(email, password, role) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const adminPassword = String(password || '');
+  if (!normalizedEmail && !adminPassword) {
+    return null;
+  }
+  if (!normalizedEmail || adminPassword.length < 8) {
+    throw new Error('Set both ADMIN_EMAIL and an ADMIN_PASSWORD of at least 8 characters.');
+  }
+
+  if (dbStatus === 'connected') {
+    const existing = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
+    if (existing.rows[0]) {
+      const result = await pool.query(
+        'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
+        [role, existing.rows[0].id]
+      );
+      return userRowToRecord(result.rows[0]);
+    }
+
+    const passwordHash = await hashPassword(adminPassword);
+    const result = await pool.query(
+      `INSERT INTO users (name, email, username, password, status, role, is_blocked)
+       VALUES ($1, $2, $2, $3, 'active', $4, FALSE)
+       RETURNING *`,
+      [role === 'admin' ? 'Administrator' : 'Superadmin', normalizedEmail, passwordHash, role]
+    );
+    return userRowToRecord(result.rows[0]);
+  }
+
+  const existing = inMemoryUsers.find((user) => user.email.toLowerCase() === normalizedEmail);
+  if (existing) {
+    existing.role = role;
+    return { ...existing };
+  }
+
+  const passwordHash = await hashPassword(adminPassword);
+  const admin = {
+    id: nextUserId++,
+    name: role === 'admin' ? 'Administrator' : 'Superadmin',
+    email: normalizedEmail,
+    username: normalizedEmail,
+    password: passwordHash,
+    status: 'active',
+    role,
+    isBlocked: false,
+    createdAt: new Date().toISOString()
+  };
+  inMemoryUsers.unshift(admin);
+  return { ...admin };
+}
+
+async function ensureAdminUser(email, password) {
+  return ensurePrivilegedUser(email, password, 'admin');
+}
+
+async function ensureSuperAdminUser(email, password) {
+  return ensurePrivilegedUser(email, password, 'superadmin');
+}
+
+async function updateManagedUser(userId, rawUser) {
+  const name = String(rawUser.name || '').trim();
+  const email = String(rawUser.email || '').trim();
+  if (!name || name.length > 255 || !email || email.length > 255) {
+    const error = new Error('Name and email are required and must be 255 characters or fewer.');
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+
+  if (dbStatus === 'connected') {
+    const duplicate = await pool.query(
+      'SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2',
+      [email, userId]
+    );
+    if (duplicate.rowCount) {
+      const error = new Error('A user with this email already exists.');
+      error.code = 'DUPLICATE_EMAIL';
+      throw error;
+    }
+
+    const result = await pool.query(
+      `UPDATE users SET name = $1, email = $2
+       WHERE id = $3 AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [name, email, userId]
+    );
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId) && String(item.role || 'user').toLowerCase() !== 'superadmin'
+  );
+  if (!user) {
+    return null;
+  }
+  const duplicate = inMemoryUsers.find((item) =>
+    String(item.id) !== String(userId) && item.email.toLowerCase() === email.toLowerCase()
+  );
+  if (duplicate) {
+    const error = new Error('A user with this email already exists.');
+    error.code = 'DUPLICATE_EMAIL';
+    throw error;
+  }
+
+  const previousEmail = user.email;
+  user.name = name;
+  user.email = email;
+  if (!user.username || user.username === previousEmail) {
+    user.username = email;
+  }
+  return { ...user };
+}
+
+async function setUserBlocked(userId, isBlocked) {
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET is_blocked = $1
+       WHERE id = $2 AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [isBlocked, userId]
+    );
+    const user = result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+    if (user && isBlocked) {
+      await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+    }
+    return user;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId) && String(item.role || 'user').toLowerCase() !== 'superadmin'
+  );
+  if (!user) {
+    return null;
+  }
+  user.isBlocked = isBlocked;
+  if (isBlocked) {
+    for (const [sessionHash, session] of inMemorySessions) {
+      if (String(session.userId) === String(userId)) {
+        inMemorySessions.delete(sessionHash);
+      }
+    }
+  }
+  return { ...user };
+}
+
 
 async function updateUserPassword(userId, password) {
   if (dbStatus === 'connected') {
@@ -250,6 +494,105 @@ async function updateUserPassword(userId, password) {
     user.password = password;
   }
 }
+
+
+async function createPasswordResetToken(tokenHash, userId, expiresAt) {
+  if (dbStatus === 'connected') {
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at <= NOW()', [userId]);
+    await pool.query(
+      'INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [tokenHash, userId, expiresAt]
+    );
+    return;
+  }
+
+  for (const [storedHash, reset] of inMemoryPasswordResets) {
+    if (String(reset.userId) === String(userId) || reset.expiresAt <= Date.now()) {
+      inMemoryPasswordResets.delete(storedHash);
+    }
+  }
+  inMemoryPasswordResets.set(tokenHash, {
+    userId,
+    expiresAt: new Date(expiresAt).getTime()
+  });
+}
+
+async function deletePasswordResetTokens(userId) {
+  if (dbStatus === 'connected') {
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+    return;
+  }
+
+  for (const [storedHash, reset] of inMemoryPasswordResets) {
+    if (String(reset.userId) === String(userId)) {
+      inMemoryPasswordResets.delete(storedHash);
+    }
+  }
+}
+
+async function resetPasswordWithToken(tokenHash, passwordHash) {
+  if (dbStatus === 'connected') {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tokenResult = await client.query(
+        `SELECT user_id FROM password_reset_tokens
+         WHERE token_hash = $1 AND expires_at > NOW()
+         FOR UPDATE`,
+        [tokenHash]
+      );
+      if (!tokenResult.rows[0]) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+
+      const userId = tokenResult.rows[0].user_id;
+      const updateResult = await client.query(
+        'UPDATE users SET password = $1 WHERE id = $2',
+        [passwordHash, userId]
+      );
+      if (!updateResult.rowCount) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const reset = inMemoryPasswordResets.get(tokenHash);
+  if (!reset || reset.expiresAt <= Date.now()) {
+    inMemoryPasswordResets.delete(tokenHash);
+    return false;
+  }
+
+  const user = inMemoryUsers.find((item) => String(item.id) === String(reset.userId));
+  if (!user) {
+    inMemoryPasswordResets.delete(tokenHash);
+    return false;
+  }
+
+  user.password = passwordHash;
+  for (const [storedHash, storedReset] of inMemoryPasswordResets) {
+    if (String(storedReset.userId) === String(reset.userId)) {
+      inMemoryPasswordResets.delete(storedHash);
+    }
+  }
+  for (const [sessionHash, session] of inMemorySessions) {
+    if (String(session.userId) === String(reset.userId)) {
+      inMemorySessions.delete(sessionHash);
+    }
+  }
+  return true;
+}
+
 
 async function createSession(tokenHash, userId, expiresAt) {
   if (dbStatus === 'connected') {
@@ -353,12 +696,31 @@ module.exports = {
   initializeDatabase,
   getDbStatus,
   listUsers,
+
+  listManagedUsers,
+  getUserById,
+  getUserByEmail,
+  createUser,
+  ensureAdminUser,
+  ensureSuperAdminUser,
+  updateManagedUser,
+  setUserBlocked,
+  updateUserPassword,
+  createPasswordResetToken,
+  deletePasswordResetTokens,
+  resetPasswordWithToken,
+
   getUserById,
   getUserByEmail,
   createUser,
   updateUserPassword,
+
   createSession,
   getSession,
   deleteSession,
   updateUserStatus
+
 };
+
+};
+

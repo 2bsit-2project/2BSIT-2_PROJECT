@@ -22,5 +22,18 @@ module.exports = {
   DB_PORT: readPort('DB_PORT', 5432),
   DB_NAME: process.env.DB_NAME || 'infoman',
   DB_USER: process.env.DB_USER || 'postgres',
+
+  DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
+  APP_BASE_URL: process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: readPort('SMTP_PORT', 587),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
+  SMTP_FROM: process.env.SMTP_FROM || process.env.SMTP_USER || '',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || '',
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || ''
+
   DB_PASSWORD: process.env.DB_PASSWORD || 'postgres'
+
 };

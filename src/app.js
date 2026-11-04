@@ -6,16 +6,34 @@ const {
   connectDatabase,
   getDbStatus,
   listUsers,
+
+  listManagedUsers,
+  getUserById,
+  getUserByEmail,
+  createUser,
+  ensureAdminUser,
+  updateManagedUser,
+  setUserBlocked,
+  updateUserPassword,
+  createPasswordResetToken,
+  deletePasswordResetTokens,
+  resetPasswordWithToken,
+
   getUserById,
   getUserByEmail,
   createUser,
   updateUserPassword,
+
   createSession,
   getSession,
   deleteSession,
   updateUserStatus
 } = require('./config/db');
 const { hashPassword, verifyPassword } = require('./config/security');
+
+const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
+
 
 const app = express();
 let activePort = PORT;
@@ -57,12 +75,20 @@ function toResponseShape(user) {
     email: user.email,
     username: user.username || user.email,
     status: user.status || 'pending',
+
+    role: user.role || 'user',
+    isBlocked: Boolean(user.isBlocked),
+
+
     createdAt: user.createdAt || user.created_at || new Date().toISOString()
   };
 }
 
 const SESSION_COOKIE = 'infoman_session';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
 
 function getSessionToken(req) {
   const cookieHeader = req.headers.cookie || '';
@@ -89,6 +115,32 @@ async function getAuthenticatedUser(req) {
   const session = await getSession(tokenHash(token));
   return session ? getUserById(session.userId) : null;
 }
+
+
+async function requireAdmin(req, res, next) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Please log in to continue.' });
+    }
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked.' });
+    }
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Administrator access is required.' });
+    }
+    req.adminUser = user;
+    return next();
+  } catch (error) {
+    console.error('Unable to verify administrator access:', error.message);
+    return res.status(500).json({ message: 'Unable to verify administrator access.' });
+  }
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 
 app.get('/', (req, res) => {
   res.json({
@@ -123,6 +175,20 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
+
+app.get('/forgot-password', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'forgot-password.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'reset-password.html'));
+});
+
+app.get('/admin/users', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
+});
+
+
 app.get('/api/auth/session', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -135,6 +201,65 @@ app.get('/api/auth/session', async (req, res) => {
     return res.status(500).json({ message: 'Unable to check session.' });
   }
 });
+
+
+app.post('/api/auth/password-reset/request', async (req, res) => {
+  if (!emailConfigured) {
+    return res.status(503).json({ message: 'Password reset email is not configured. Contact the administrator.' });
+  }
+
+  try {
+    const email = String((req.body && req.body.email) || '').trim();
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    const user = await getUserByEmail(email);
+    if (user) {
+      const token = randomBytes(32).toString('hex');
+      await createPasswordResetToken(
+        tokenHash(token),
+        user.id,
+        new Date(Date.now() + PASSWORD_RESET_DURATION_MS)
+      );
+      try {
+        await sendPasswordResetEmail(user.email, token);
+      } catch (error) {
+        await deletePasswordResetTokens(user.id);
+        throw error;
+      }
+    }
+
+    return res.json({ message: 'If that email is registered, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Unable to request password reset:', error.message);
+    return res.status(500).json({ message: 'Unable to send a password reset email. Please try again later.' });
+  }
+});
+
+app.post('/api/auth/password-reset/confirm', async (req, res) => {
+  try {
+    const token = String((req.body && req.body.token) || '');
+    const password = String((req.body && req.body.password) || '');
+    if (!/^[a-f\d]{64}$/i.test(token)) {
+      return res.status(400).json({ message: 'A valid reset token is required.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    }
+
+    const updated = await resetPasswordWithToken(tokenHash(token), await hashPassword(password));
+    if (!updated) {
+      return res.status(400).json({ message: 'This reset link is invalid or has expired. Request a new one.' });
+    }
+
+    return res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Unable to reset password:', error.message);
+    return res.status(500).json({ message: 'Unable to reset password. Please try again later.' });
+  }
+});
+
 
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -153,6 +278,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!matches) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
+    }
+
 
     if (needsRehash) {
       await updateUserPassword(user.id, await hashPassword(password));
@@ -182,10 +312,17 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
+
+app.get(['/api/users', '/users'], requireAdmin, async (req, res) => {
+  try {
+    const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
+    const items = await listManagedUsers(status);
+
 app.get(['/api/users', '/users'], async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
     const items = await listUsers(status);
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -195,9 +332,15 @@ app.get(['/api/users', '/users'], async (req, res) => {
   }
 });
 
+
+app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res) => {
+  try {
+    const items = await listManagedUsers('pending');
+
 app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
   try {
     const items = await listUsers('pending');
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -207,10 +350,17 @@ app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
   }
 });
 
+
+app.get('/api/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
+
 app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await getUserById(req.params.id);
     if (!user) {
+
       return res.status(404).json({ message: 'User not found.' });
     }
 
@@ -223,6 +373,9 @@ app.get('/api/users/:id', async (req, res) => {
 async function registerUser(req, res) {
   try {
     const payload = normalizeUserPayload(req.body || {});
+
+    payload.status = 'pending';
+
 
     if (!payload.email) {
       return res.status(400).json({ message: 'Email is required.' });
@@ -249,7 +402,94 @@ async function registerUser(req, res) {
 
 app.post(['/api/users', '/api/users/register', '/api/register', '/users/register', '/register'], registerUser);
 
+
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await listManagedUsers();
+    return res.json({ count: users.length, users: users.map(toResponseShape) });
+  } catch (error) {
+    console.error('Unable to fetch managed users:', error.message);
+    return res.status(500).json({ message: 'Unable to fetch users.' });
+  }
+});
+
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const name = String((req.body && req.body.name) || '').trim();
+    const email = String((req.body && req.body.email) || '').trim();
+    const password = String((req.body && req.body.password) || '');
+    if (!name || name.length > 255 || !isValidEmail(email) || email.length > 255) {
+      return res.status(400).json({ message: 'Enter a valid name and email address.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    }
+
+    const user = await createUser({ name, email, password, status: 'pending' });
+    return res.status(201).json({
+      message: 'User added successfully.',
+      user: toResponseShape(user)
+    });
+  } catch (error) {
+    const status = error.code === 'DUPLICATE_EMAIL' ? 409 : error.code === 'VALIDATION_ERROR' ? 400 : 500;
+    if (status === 500) {
+      console.error('Unable to add user:', error.message);
+    }
+    return res.status(status).json({ message: error.message || 'Unable to add user.' });
+  }
+});
+
+app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const name = String((req.body && req.body.name) || '').trim();
+    const email = String((req.body && req.body.email) || '').trim();
+    if (!name || name.length > 255 || !isValidEmail(email) || email.length > 255) {
+      return res.status(400).json({ message: 'Enter a valid name and email address.' });
+    }
+
+    const user = await updateManagedUser(req.params.id, { name, email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    return res.json({ message: 'User updated successfully.', user: toResponseShape(user) });
+  } catch (error) {
+    const status = error.code === 'DUPLICATE_EMAIL' ? 409 : error.code === 'VALIDATION_ERROR' ? 400 : 500;
+    if (status === 500) {
+      console.error('Unable to update user:', error.message);
+    }
+    return res.status(status).json({ message: error.message || 'Unable to update user.' });
+  }
+});
+
+app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
+  try {
+    const isBlocked = req.body && req.body.isBlocked;
+    if (typeof isBlocked !== 'boolean') {
+      return res.status(400).json({ message: 'isBlocked must be true or false.' });
+    }
+    const target = await getUserById(req.params.id);
+    if (!target || String(target.role || 'user').toLowerCase() === 'superadmin') {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    if (target.role === 'admin') {
+      return res.status(400).json({ message: 'Administrator accounts cannot be blocked.' });
+    }
+
+    const user = await setUserBlocked(req.params.id, isBlocked);
+    return res.json({
+      message: isBlocked ? 'User blocked successfully.' : 'User unblocked successfully.',
+      user: toResponseShape(user)
+    });
+  } catch (error) {
+    console.error('Unable to change user block status:', error.message);
+    return res.status(500).json({ message: 'Unable to change user block status.' });
+  }
+});
+
+app.patch('/api/users/:id/status', requireAdmin, async (req, res) => {
+
 app.patch('/api/users/:id/status', async (req, res) => {
+
   try {
     const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
     const user = await updateUserStatus(req.params.id, requestedStatus);
@@ -300,4 +540,8 @@ module.exports = {
   app,
   startServer,
   getServerPort: () => activePort
+
 };
+
+};
+
