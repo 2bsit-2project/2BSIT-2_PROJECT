@@ -1,15 +1,4 @@
 
-<<<<<<< HEAD
-# 2BSIT-2_PROJECT (InfoMan)
-
-
-# 2BSIT-2_PROJECT (InfoMan)
-
-
-
-# 2BSIT-2_PROJECT (InfoMan)
-
-
 # 2BSIT-2_PROJECT (InfoMan)
 
 InfoMan is an Express application with user registration and login. New accounts
