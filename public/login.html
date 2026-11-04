@@ -88,7 +88,13 @@
 
 
       <p id="adminLink" hidden><a href="/admin/users">Open user management</a></p>
+      <p id="superAdminLink" hidden><a href="/superadmin/users">Open Superadmin console</a></p>
       <p><a href="/forgot-password">Forgot your password?</a></p>
+
+
+      <p id="adminLink" hidden><a href="/admin/users">Open user management</a></p>
+      <p><a href="/forgot-password">Forgot your password?</a></p>
+
 
 
       <p>Need an account? <a href="/register">Register</a>.</p>
@@ -103,7 +109,13 @@
       const superAdminLink = document.getElementById('superAdminLink');
 
 
+
       const adminLink = document.getElementById('adminLink');
+      const superAdminLink = document.getElementById('superAdminLink');
+
+
+      const adminLink = document.getElementById('adminLink');
+
 
 
 
@@ -119,11 +131,18 @@
           form.hidden = true;
           logoutButton.hidden = false;
 
+          adminLink.hidden = result.user.role !== 'admin'
+            || !result.user.permissions.includes('users.view');
+          superAdminLink.hidden = result.user.role !== 'superadmin'
+            && !result.user.permissions.includes('accounts.view');
+
+
           adminLink.hidden = result.user.role !== 'admin';
           superAdminLink.hidden = result.user.role !== 'superadmin';
 
 
           adminLink.hidden = result.user.role !== 'admin';
+
 
 
           showStatus(`Logged in as ${result.user.name}.`, 'success');
@@ -138,6 +157,11 @@
 
 
         adminLink.hidden = true;
+        superAdminLink.hidden = true;
+
+
+        adminLink.hidden = true;
+
 
 
       }

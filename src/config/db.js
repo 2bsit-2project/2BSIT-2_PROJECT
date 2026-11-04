@@ -12,6 +12,14 @@ const {
   SUPERADMIN_EMAIL,
   SUPERADMIN_PASSWORD
 
+} = require('./env');
+const { hashPassword } = require('./security');
+const {
+  DEFAULT_ADMIN_PERMISSIONS,
+  normalizePermissions
+} = require('./permissions');
+
+
 
   NODE_ENV,
   ADMIN_EMAIL,
@@ -22,6 +30,7 @@ const {
 
 } = require('./env');
 const { hashPassword } = require('./security');
+
 
 const pool = new Pool({
   host: DB_HOST,
@@ -46,6 +55,10 @@ const inMemoryPasswordResets = new Map();
 const inMemoryPasswordResets = new Map();
 
 
+const inMemoryPasswordResets = new Map();
+
+
+
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -67,10 +80,14 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'user'");
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE');
 
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB');
+
+
 
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
+
 
 
     await pool.query(`
@@ -129,6 +146,11 @@ async function connectDatabase() {
 
 
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+
+
+      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
+
 
       return false;
     }
@@ -138,8 +160,12 @@ async function connectDatabase() {
     await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
 
 
+    await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
+
+
       return false;
     }
+
 
 
 
@@ -159,11 +185,13 @@ async function connectDatabase() {
     }
 
 
+
     try {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
     } catch (adminError) {
       console.error('Unable to initialize the configured admin account:', adminError.message);
     }
+
 
 
 
@@ -199,10 +227,16 @@ function userRowToRecord(row) {
 
     role: row.role || 'user',
     isBlocked: Boolean(row.is_blocked),
+    permissions: row.permissions,
 
 
     role: row.role || 'user',
     isBlocked: Boolean(row.is_blocked),
+
+
+    role: row.role || 'user',
+    isBlocked: Boolean(row.is_blocked),
+
 
 
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
@@ -220,7 +254,11 @@ async function listUsers(statusFilter) {
 
     return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
+
+    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
     return records.map((user) => ({ ...user }));
+
 
 
   }
@@ -335,6 +373,10 @@ async function createUser(rawUser) {
       }
 
       const result = await pool.query(
+
+        `INSERT INTO users (name, email, username, password, status, role, is_blocked, permissions)
+         VALUES ($1, $2, $3, $4, $5, 'user', FALSE, '[]'::jsonb)
+
         `INSERT INTO users (name, email, username, password, status, role, is_blocked)
          VALUES ($1, $2, $3, $4, $5, 'user', FALSE)
 
@@ -343,6 +385,7 @@ async function createUser(rawUser) {
       const result = await pool.query(
         `INSERT INTO users (name, email, username, password, status)
          VALUES ($1, $2, $3, $4, $5)
+
 
 
          RETURNING *;`,
@@ -377,10 +420,16 @@ async function createUser(rawUser) {
 
     role: 'user',
     isBlocked: false,
+    permissions: [],
 
 
     role: 'user',
     isBlocked: false,
+
+
+    role: 'user',
+    isBlocked: false,
+
 
 
 
@@ -403,7 +452,12 @@ async function ensurePrivilegedUser(email, password, role) {
     const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
     throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
 
+
+    const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
+    throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
+
     throw new Error('Set both ADMIN_EMAIL and an ADMIN_PASSWORD of at least 8 characters.');
+
 
   }
 
@@ -412,31 +466,67 @@ async function ensurePrivilegedUser(email, password, role) {
     if (existing.rows[0]) {
       const result = await pool.query(
 
+        `UPDATE users
+         SET role = $1, status = 'active', is_blocked = FALSE,
+             permissions = CASE
+               WHEN $1 = 'admin'
+                 AND (LOWER(COALESCE(role, 'user')) <> 'admin' OR permissions IS NULL)
+               THEN $3::jsonb
+               ELSE permissions
+             END
+         WHERE id = $2 RETURNING *`,
+        [role, existing.rows[0].id, JSON.stringify(DEFAULT_ADMIN_PERMISSIONS)]
+
+
         "UPDATE users SET role = $1, status = 'active', is_blocked = FALSE WHERE id = $2 RETURNING *",
 
         'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
 
         [role, existing.rows[0].id]
+
       );
       return userRowToRecord(result.rows[0]);
     }
 
     const passwordHash = await hashPassword(adminPassword);
     const result = await pool.query(
+
+      `INSERT INTO users (name, email, username, password, status, role, is_blocked, permissions)
+       VALUES ($1, $2, $2, $3, 'active', $4, FALSE, $5::jsonb)
+       RETURNING *`,
+      [
+        role === 'admin' ? 'Administrator' : 'Superadmin',
+        normalizedEmail,
+        passwordHash,
+        role,
+        JSON.stringify(role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : [])
+      ]
+
       `INSERT INTO users (name, email, username, password, status, role, is_blocked)
        VALUES ($1, $2, $2, $3, 'active', $4, FALSE)
        RETURNING *`,
       [role === 'admin' ? 'Administrator' : 'Superadmin', normalizedEmail, passwordHash, role]
+
     );
     return userRowToRecord(result.rows[0]);
   }
 
   const existing = inMemoryUsers.find((user) => user.email.toLowerCase() === normalizedEmail);
   if (existing) {
+
+    const wasAdmin = existing.role === 'admin';
+    existing.role = role;
+    existing.status = 'active';
+    existing.isBlocked = false;
+    if (role === 'admin' && (!wasAdmin || !Array.isArray(existing.permissions))) {
+      existing.permissions = [...DEFAULT_ADMIN_PERMISSIONS];
+    }
+
     existing.role = role;
 
     existing.status = 'active';
     existing.isBlocked = false;
+
 
     return { ...existing };
   }
@@ -451,6 +541,9 @@ async function ensurePrivilegedUser(email, password, role) {
     status: 'active',
     role,
     isBlocked: false,
+
+    permissions: role === 'admin' ? [...DEFAULT_ADMIN_PERMISSIONS] : [],
+
     createdAt: new Date().toISOString()
   };
   inMemoryUsers.unshift(admin);
@@ -786,12 +879,27 @@ async function approvePendingUser(userId) {
   return { ...user };
 }
 
+
+async function setUserRole(userId, role, adminPermissions = DEFAULT_ADMIN_PERMISSIONS) {
+
 async function setUserRole(userId, role) {
+
   if (!['user', 'admin'].includes(role)) {
     const error = new Error('Role must be user or admin.');
     error.code = 'VALIDATION_ERROR';
     throw error;
   }
+
+  const permissions = role === 'admin' ? normalizePermissions(adminPermissions) : [];
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET role = $1, permissions = $3::jsonb
+       WHERE id = $2 AND status = 'active'
+         AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
+       RETURNING *`,
+      [role, userId, JSON.stringify(permissions)]
+
 
   if (dbStatus === 'connected') {
     const result = await pool.query(
@@ -800,6 +908,7 @@ async function setUserRole(userId, role) {
          AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
        RETURNING *`,
       [role, userId]
+
     );
     return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
   }
@@ -813,8 +922,46 @@ async function setUserRole(userId, role) {
     return null;
   }
   user.role = role;
+
+  user.permissions = permissions;
   return { ...user };
 }
+
+async function setUserPermissions(userId, permissions) {
+  const normalizedPermissions = normalizePermissions(permissions);
+  if (
+    !Array.isArray(permissions)
+    || normalizedPermissions.length !== permissions.length
+    || new Set(permissions).size !== permissions.length
+  ) {
+    const error = new Error('Permissions must contain only known, unique permission names.');
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE users SET permissions = $1::jsonb
+       WHERE id = $2 AND LOWER(COALESCE(role, 'user')) = 'admin'
+       RETURNING *`,
+      [JSON.stringify(normalizedPermissions), userId]
+    );
+    return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
+  }
+
+  const user = inMemoryUsers.find((item) =>
+    String(item.id) === String(userId) && String(item.role || 'user').toLowerCase() === 'admin'
+  );
+  if (!user) {
+    return null;
+  }
+  user.permissions = normalizedPermissions;
+  return { ...user };
+}
+
+  return { ...user };
+}
+
 
 
 module.exports = {
@@ -842,6 +989,11 @@ module.exports = {
   deleteSession,
   updateUserStatus,
   approvePendingUser,
+
+  setUserRole,
+  setUserPermissions
+};
+
   setUserRole
 };
 
@@ -859,5 +1011,6 @@ module.exports = {
 };
 
 };
+
 
 

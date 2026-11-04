@@ -8,6 +8,12 @@ process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
 process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
 
 
+
+process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
+process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
+
+
+
 const { app } = require('../src/app');
 const {
   ensureAdminUser,
@@ -56,6 +62,7 @@ test('admin can manage users while regular users cannot', async () => {
     const anonymousList = await fetch(`${baseUrl}/api/admin/users`);
     assert.equal(anonymousList.status, 401);
 
+
     const anonymousLegacyList = await fetch(`${baseUrl}/api/users`);
     assert.equal(anonymousLegacyList.status, 401);
 
@@ -65,6 +72,14 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(adminLogin.status, 200);
     const adminCookie = adminLogin.headers.get('set-cookie').split(';', 1)[0];
+
+    const adminUser = (await adminLogin.json()).user;
+    const selfRights = await fetch(`${baseUrl}/api/users/${adminUser.id}/permissions`, {
+      headers: { Cookie: adminCookie }
+    });
+    assert.equal(selfRights.status, 403);
+
+
 
     const adminApprovalAttempt = await fetch(`${baseUrl}/api/superadmin/users/1/approve`, {
       method: 'PATCH',
@@ -89,8 +104,10 @@ test('admin can manage users while regular users cannot', async () => {
 
 
 
+
     const superAdminEmail = `hidden-superadmin-${Date.now()}@example.com`;
     const superAdmin = await ensureSuperAdminUser(superAdminEmail, 'superadmin-test-password');
+
 
     const managedUsers = await listManagedUsers();
     assert.equal(managedUsers.some((user) => user.id === superAdmin.id), false);
@@ -159,12 +176,125 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(promoteAdmin.status, 200);
     assert.equal((await promoteAdmin.json()).user.role, 'admin');
 
+
+    const adminRights = await fetch(`${baseUrl}/api/users/${createdUser.id}/permissions`, {
+      headers: { Cookie: superAdminCookie }
+    });
+    assert.equal(adminRights.status, 200);
+    const rightsDialog = await adminRights.json();
+    assert.ok(rightsDialog.modules.some((module) => module.id === 'users'));
+    assert.ok(rightsDialog.modules.some((module) => module.id === 'roles'));
+    assert.ok(rightsDialog.assignablePermissions.includes('roles.assign_admin'));
+
+    const invalidRights = await fetch(`${baseUrl}/api/users/${createdUser.id}/permissions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: superAdminCookie
+      },
+      body: JSON.stringify({ permissions: ['users.delete'] })
+    });
+    assert.equal(invalidRights.status, 400);
+
+    const restrictedRights = await fetch(`${baseUrl}/api/users/${createdUser.id}/permissions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminCookie
+      },
+      body: JSON.stringify({ permissions: ['users.view'] })
+    });
+    assert.equal(restrictedRights.status, 200);
+
+    const escalatedRights = await fetch(`${baseUrl}/api/users/${createdUser.id}/permissions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminCookie
+      },
+      body: JSON.stringify({ permissions: ['accounts.approve'] })
+    });
+    assert.equal(escalatedRights.status, 403);
+
+
     const promotedLogin = await postJson(`${baseUrl}/api/auth/login`, {
       email: createdUser.email,
       password: 'managed-user-password'
     });
     assert.equal(promotedLogin.status, 200);
     const promotedCookie = promotedLogin.headers.get('set-cookie').split(';', 1)[0];
+
+    const allowedList = await fetch(`${baseUrl}/api/admin/users`, {
+      headers: { Cookie: promotedCookie }
+    });
+    assert.equal(allowedList.status, 200);
+    const deniedCreate = await postJson(`${baseUrl}/api/admin/users`, {
+      name: 'Denied User',
+      email: `denied-${Date.now()}@example.com`,
+      password: 'managed-user-password'
+    }, promotedCookie);
+    assert.equal(deniedCreate.status, 403);
+
+    const delegatedRights = await fetch(`${baseUrl}/api/users/${createdUser.id}/permissions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: superAdminCookie
+      },
+      body: JSON.stringify({
+        permissions: ['users.view', 'accounts.view', 'accounts.approve', 'roles.assign_admin', 'rights.manage']
+      })
+    });
+    assert.equal(delegatedRights.status, 200);
+    const redundantRoleChange = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/role`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: superAdminCookie
+      },
+      body: JSON.stringify({ role: 'admin' })
+    });
+    assert.equal(redundantRoleChange.status, 400);
+    const delegatedAccountList = await fetch(`${baseUrl}/api/superadmin/users`, {
+      headers: { Cookie: promotedCookie }
+    });
+    assert.equal(delegatedAccountList.status, 200);
+    const promotableUserResponse = await postJson(`${baseUrl}/api/admin/users`, {
+      name: 'Delegated Admin',
+      email: `delegated-${Date.now()}@example.com`,
+      password: 'delegated-user-password'
+    }, adminCookie);
+    assert.equal(promotableUserResponse.status, 201);
+    const promotableUser = (await promotableUserResponse.json()).user;
+    const approvePromotable = await fetch(`${baseUrl}/api/superadmin/users/${promotableUser.id}/approve`, {
+      method: 'PATCH',
+      headers: { Cookie: superAdminCookie }
+    });
+    assert.equal(approvePromotable.status, 200);
+    const delegatedPromotion = await fetch(`${baseUrl}/api/superadmin/users/${promotableUser.id}/role`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: promotedCookie
+      },
+      body: JSON.stringify({ role: 'admin' })
+    });
+    assert.equal(delegatedPromotion.status, 200);
+    assert.deepEqual(
+      (await delegatedPromotion.json()).user.permissions,
+      ['users.view', 'accounts.view', 'accounts.approve', 'roles.assign_admin', 'rights.manage']
+    );
+    const deniedBlockAdmin = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/block`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: promotedCookie
+      },
+      body: JSON.stringify({ isBlocked: true })
+    });
+    assert.equal(deniedBlockAdmin.status, 403);
+
+
     const blockAdmin = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/block`, {
       method: 'PATCH',
       headers: {
@@ -225,7 +355,11 @@ test('admin can manage users while regular users cannot', async () => {
 
       body: JSON.stringify({ name: 'Changed Superadmin', email: process.env.SUPERADMIN_EMAIL })
 
+
+      body: JSON.stringify({ name: 'Changed Superadmin', email: process.env.SUPERADMIN_EMAIL })
+
       body: JSON.stringify({ name: 'Changed Superadmin', email: superAdminEmail })
+
 
     });
     assert.equal(hiddenSuperadminUpdate.status, 404);
@@ -250,6 +384,12 @@ test('admin can manage users while regular users cannot', async () => {
       headers: { Cookie: regularCookie }
     });
     assert.equal(forbiddenList.status, 403);
+
+    const forbiddenRights = await fetch(`${baseUrl}/api/users/${superAdmin.id}/permissions`, {
+      headers: { Cookie: regularCookie }
+    });
+    assert.equal(forbiddenRights.status, 403);
+
 
     const blockResponse = await fetch(`${baseUrl}/api/admin/users/${createdUser.id}/block`, {
       method: 'PATCH',
@@ -283,7 +423,10 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(unblockResponse.status, 200);
     assert.equal((await unblockResponse.json()).user.isBlocked, false);
 
+
+
     const adminUser = (await adminLogin.json()).user;
+
     const selfBlockResponse = await fetch(`${baseUrl}/api/admin/users/${adminUser.id}/block`, {
       method: 'PATCH',
       headers: {

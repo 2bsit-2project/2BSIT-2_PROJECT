@@ -2,6 +2,10 @@
 # 2BSIT-2_PROJECT (InfoMan)
 
 
+
+# 2BSIT-2_PROJECT (InfoMan)
+
+
 # 2BSIT-2_PROJECT (InfoMan)
 
 InfoMan is an Express application with user registration and login. New accounts
@@ -124,6 +128,7 @@ The app attempts a `SELECT 1` query at startup and exposes the database state th
 `/health`. If the database is unavailable, user registration falls back to an in-memory store so the flow still works for local testing.
 
 
+
 InfoMan is an Express application with user registration and login. New accounts
 start with a `pending` status. Passwords are stored as scrypt hashes, and login
 uses random, server-side session tokens.
@@ -148,6 +153,16 @@ uses random, server-side session tokens.
 - `POST /api/admin/users` add a user (admin only)
 - `PATCH /api/admin/users/:id` edit user details (admin only)
 - `PATCH /api/admin/users/:id/block` block or unblock a user (admin only)
+
+- `GET /api/superadmin/users` list non-Superadmin users (Superadmin or assigned admins)
+- `PATCH /api/superadmin/users/:id/approve` approve a pending account
+- `PATCH /api/superadmin/users/:id/role` assign or remove administrator role
+- `PATCH /api/superadmin/users/:id/block` block or unblock an account
+- `GET /api/users/:id/permissions` show an administrator's module/action rights
+- `PUT /api/users/:id/permissions` assign an administrator's module/action rights
+- `GET /api/users` list users
+- `PATCH /api/users/:id/status` approve a pending account (Superadmin or assigned admins)
+
 - `GET /api/superadmin/users` list non-Superadmin users (Superadmin only)
 - `PATCH /api/superadmin/users/:id/approve` approve a pending account
 - `PATCH /api/superadmin/users/:id/role` assign or remove administrator role
@@ -155,15 +170,23 @@ uses random, server-side session tokens.
 - `GET /api/users` list users
 - `PATCH /api/users/:id/status` approve a pending account (Superadmin only)
 
+
 ## Project structure
 
 - `src/server.js` starts the HTTP server.
 - `src/app.js` configures Express routes and middleware.
 - `src/config/env.js` loads and validates environment settings.
 - `src/config/db.js` configures PostgreSQL, initializes tables, and reports database status.
+
+- `src/config/permissions.js` defines module/action permissions.
+- `src/config/security.js` hashes and verifies passwords.
+- `src/config/email.js` sends password reset emails over SMTP.
+- `public/` contains the registration, login, management pages, and shared rights dialog.
+
 - `src/config/security.js` hashes and verifies passwords.
 - `src/config/email.js` sends password reset emails over SMTP.
 - `public/` contains the registration and login pages.
+
 
 ## Getting started
 
@@ -197,3 +220,13 @@ Set `SUPERADMIN_EMAIL` and `SUPERADMIN_PASSWORD` (at least 8 characters) in
 administrators, and block or unblock accounts. Pending accounts cannot sign in
 until approved. Superadmin accounts are excluded from both management screens
 and cannot be changed through their APIs.
+
+
+Administrators can open the **Rights** dialog for another administrator from
+either management screen. Rights are grouped by module and enforced by the API
+for each action. An administrator can only delegate rights they already hold
+and cannot change their own rights; Superadmins can assign any listed right.
+Administrators promoted by a Superadmin receive the standard user-management
+rights by default; administrators promoted by another administrator receive
+only the promoting administrator's rights.
+

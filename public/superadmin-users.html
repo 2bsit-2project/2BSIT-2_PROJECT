@@ -120,6 +120,25 @@
       .actions button { padding: 8px 10px; font-size: 0.82rem; }
       .empty { padding: 24px 10px; color: var(--muted); text-align: center; }
       .access-card { max-width: 540px; margin: 10vh auto; text-align: center; }
+
+      dialog {
+        width: min(680px, calc(100% - 32px));
+        max-height: 85vh;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px;
+        color: var(--text);
+      }
+      dialog::backdrop { background: rgba(15, 23, 42, 0.48); }
+      .rights-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+      .rights-module { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+      .rights-module h3 { margin: 0 0 10px; font-size: 1rem; }
+      .rights-action { display: flex; flex-direction: row; align-items: center; gap: 9px; margin: 9px 0; font-weight: 400; }
+      .rights-action input { width: auto; margin: 0; }
+      .rights-status { min-height: 1.3em; color: var(--success); }
+      .rights-status.error { color: var(--danger); }
+
       [hidden] { display: none !important; }
       @media (max-width: 760px) {
         .heading { align-items: flex-start; flex-direction: column; }
@@ -179,6 +198,20 @@
       </section>
     </main>
 
+
+    <dialog id="rightsDialog" aria-labelledby="rightsDialogTitle">
+      <h2 id="rightsDialogTitle">Action rights</h2>
+      <p>Choose which actions this administrator can perform in each module.</p>
+      <div id="rightsModules" class="rights-modules"></div>
+      <p id="rightsDialogStatus" class="rights-status" role="status" aria-live="polite"></p>
+      <div class="actions">
+        <button id="saveRightsButton" type="button">Save rights</button>
+        <button id="closeRightsButton" class="secondary" type="button">Cancel</button>
+      </div>
+    </dialog>
+
+    <script src="/rights-dialog.js"></script>
+
     <script>
       const accessMessage = document.getElementById('accessMessage');
       const accessText = document.getElementById('accessText');
@@ -189,6 +222,13 @@
       const userCount = document.getElementById('userCount');
       const emptyMessage = document.getElementById('emptyMessage');
       let users = [];
+
+      let currentUser = null;
+
+      function can(permission) {
+        return currentUser.role === 'superadmin' || currentUser.permissions.includes(permission);
+      }
+
 
       function showStatus(message, type) {
         statusMessage.textContent = message;
@@ -261,6 +301,36 @@
 
           const actions = document.createElement('div');
           actions.className = 'actions';
+
+          if (user.status === 'pending' && can('accounts.approve')) {
+            actions.append(createActionButton('Approve', 'approve', () => approveUser(user)));
+          } else if (user.status === 'active') {
+            const nextRole = user.role === 'admin' ? 'user' : 'admin';
+            const rolePermission = nextRole === 'admin' ? 'roles.assign_admin' : 'roles.remove_admin';
+            if (can(rolePermission)) {
+              const roleAction = nextRole === 'admin' ? 'Make admin' : 'Remove admin';
+              actions.append(createActionButton(roleAction, 'secondary', () => changeRole(user, nextRole)));
+            }
+          }
+
+          if (can('accounts.block')) {
+            const blockAction = user.isBlocked ? 'Unblock' : 'Block';
+            actions.append(createActionButton(
+              blockAction,
+              user.isBlocked ? 'secondary' : 'danger',
+              () => changeBlockStatus(user)
+            ));
+          }
+          if (
+            user.role === 'admin'
+            && can('rights.manage')
+            && (currentUser.role === 'superadmin' || String(user.id) !== String(currentUser.id))
+          ) {
+            actions.append(createActionButton('Rights', 'secondary', () =>
+              window.openRightsDialog(user, loadUsers)
+            ));
+          }
+
           if (user.status === 'pending') {
             actions.append(createActionButton('Approve', 'approve', () => approveUser(user)));
           } else if (user.status === 'active') {
@@ -275,6 +345,7 @@
             user.isBlocked ? 'secondary' : 'danger',
             () => changeBlockStatus(user)
           ));
+
           addCell(row, actions);
           userRows.append(row);
         }
@@ -359,14 +430,26 @@
             return;
           }
           const session = await parseResponse(response);
+
+          currentUser = session.user;
+          if (!can('accounts.view')) {
+            accessText.textContent = 'You do not have permission to view account approvals.';
+
           if (session.user.role !== 'superadmin') {
             accessText.textContent = 'This console is available to Superadmins only.';
+
             return;
           }
 
           await loadUsers();
           accessMessage.hidden = true;
           dashboard.hidden = false;
+
+          if (currentUser.role === 'admin') {
+            document.querySelector('.heading h1').textContent = 'Account approvals';
+            document.querySelector('.heading p').textContent = 'Manage account approvals and delegated administrator access.';
+          }
+
         } catch (error) {
           accessText.textContent = error.message;
         }

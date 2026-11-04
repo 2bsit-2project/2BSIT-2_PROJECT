@@ -12,11 +12,14 @@ const {
   ensureSuperAdminUser
 
 
+
+
 const { createHash } = require('node:crypto');
 const { app } = require('../src/app');
 const {
   createPasswordResetToken,
   resetPasswordWithToken
+
 
 } = require('../src/config/db');
 const { hashPassword, verifyPassword } = require('../src/config/security');
@@ -24,8 +27,11 @@ const { emailConfigured } = require('../src/config/email');
 
 
 
+
+
 const { app } = require('../src/app');
 const { hashPassword, verifyPassword } = require('../src/config/security');
+
 
 
 
@@ -56,9 +62,6 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(loginPage.status, 200);
     assert.match(await loginPage.text(), /Log in/);
 
-
-
-
     assert.equal((await fetch(`${baseUrl}/forgot-password`)).status, 200);
     assert.equal((await fetch(`${baseUrl}/reset-password`)).status, 200);
     if (!emailConfigured) {
@@ -69,10 +72,6 @@ test('registration, login, session check, and logout work', async () => {
       });
       assert.equal(emailNotConfigured.status, 503);
     }
-
-
-
-
 
 
     const registration = await fetch(`${baseUrl}/api/users`, {
@@ -186,6 +185,7 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(newPasswordLogin.status, 200);
 
 
+
     const logout = await fetch(`${baseUrl}/api/auth/logout`, {
       method: 'POST',
       headers: { Cookie: sessionCookie }
@@ -196,6 +196,7 @@ test('registration, login, session check, and logout work', async () => {
       headers: { Cookie: sessionCookie }
     });
     assert.equal(expiredSession.status, 401);
+
 
 
   } finally {
