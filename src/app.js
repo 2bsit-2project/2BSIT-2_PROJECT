@@ -6,6 +6,7 @@ const {
   connectDatabase,
   getDbStatus,
   listUsers,
+
   listManagedUsers,
   getUserById,
   getUserByEmail,
@@ -17,13 +18,22 @@ const {
   createPasswordResetToken,
   deletePasswordResetTokens,
   resetPasswordWithToken,
+
+  getUserById,
+  getUserByEmail,
+  createUser,
+  updateUserPassword,
+
   createSession,
   getSession,
   deleteSession,
   updateUserStatus
 } = require('./config/db');
 const { hashPassword, verifyPassword } = require('./config/security');
+
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
+
+
 
 const app = express();
 let activePort = PORT;
@@ -65,15 +75,20 @@ function toResponseShape(user) {
     email: user.email,
     username: user.username || user.email,
     status: user.status || 'pending',
+
     role: user.role || 'user',
     isBlocked: Boolean(user.isBlocked),
+
+
     createdAt: user.createdAt || user.created_at || new Date().toISOString()
   };
 }
 
 const SESSION_COOKIE = 'infoman_session';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
+
 
 function getSessionToken(req) {
   const cookieHeader = req.headers.cookie || '';
@@ -101,6 +116,7 @@ async function getAuthenticatedUser(req) {
   return session ? getUserById(session.userId) : null;
 }
 
+
 async function requireAdmin(req, res, next) {
   try {
     const user = await getAuthenticatedUser(req);
@@ -124,6 +140,7 @@ async function requireAdmin(req, res, next) {
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+
 
 app.get('/', (req, res) => {
   res.json({
@@ -158,6 +175,7 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
+
 app.get('/forgot-password', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'forgot-password.html'));
 });
@@ -169,6 +187,7 @@ app.get('/reset-password', (req, res) => {
 app.get('/admin/users', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
 });
+
 
 app.get('/api/auth/session', async (req, res) => {
   try {
@@ -182,6 +201,7 @@ app.get('/api/auth/session', async (req, res) => {
     return res.status(500).json({ message: 'Unable to check session.' });
   }
 });
+
 
 app.post('/api/auth/password-reset/request', async (req, res) => {
   if (!emailConfigured) {
@@ -240,6 +260,7 @@ app.post('/api/auth/password-reset/confirm', async (req, res) => {
   }
 });
 
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const email = String((req.body && req.body.email) || '').trim();
@@ -257,9 +278,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!matches) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
+
     if (user.isBlocked) {
       return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
     }
+
 
     if (needsRehash) {
       await updateUserPassword(user.id, await hashPassword(password));
@@ -289,10 +312,17 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
+
 app.get(['/api/users', '/users'], requireAdmin, async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
     const items = await listManagedUsers(status);
+
+app.get(['/api/users', '/users'], async (req, res) => {
+  try {
+    const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
+    const items = await listUsers(status);
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -302,9 +332,15 @@ app.get(['/api/users', '/users'], requireAdmin, async (req, res) => {
   }
 });
 
+
 app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res) => {
   try {
     const items = await listManagedUsers('pending');
+
+app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
+  try {
+    const items = await listUsers('pending');
+
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -314,10 +350,17 @@ app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res)
   }
 });
 
+
 app.get('/api/users/:id', requireAdmin, async (req, res) => {
   try {
     const user = await getUserById(req.params.id);
     if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
+
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+
       return res.status(404).json({ message: 'User not found.' });
     }
 
@@ -330,7 +373,9 @@ app.get('/api/users/:id', requireAdmin, async (req, res) => {
 async function registerUser(req, res) {
   try {
     const payload = normalizeUserPayload(req.body || {});
+
     payload.status = 'pending';
+
 
     if (!payload.email) {
       return res.status(400).json({ message: 'Email is required.' });
@@ -356,6 +401,7 @@ async function registerUser(req, res) {
 }
 
 app.post(['/api/users', '/api/users/register', '/api/register', '/users/register', '/register'], registerUser);
+
 
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
   try {
@@ -441,6 +487,9 @@ app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
 });
 
 app.patch('/api/users/:id/status', requireAdmin, async (req, res) => {
+
+app.patch('/api/users/:id/status', async (req, res) => {
+
   try {
     const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
     const user = await updateUserStatus(req.params.id, requestedStatus);
@@ -491,4 +540,8 @@ module.exports = {
   app,
   startServer,
   getServerPort: () => activePort
+
 };
+
+};
+
