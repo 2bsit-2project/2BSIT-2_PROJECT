@@ -1397,3 +1397,63 @@ CREATE TABLE rights (
     can_write BOOLEAN DEFAULT FALSE,
     can_delete BOOLEAN DEFAULT FALSE
 );
+
+
+
+
+
+
+
+
+
+
+-- =================================---------------------------
+-- S1-DBA-04: TRANSACTIONAL TABLES & AUDIT LOGGING
+-- =================================---------------------------
+
+DROP TABLE IF EXISTS priceHist CASCADE;
+DROP TABLE IF EXISTS payment CASCADE;
+DROP TABLE IF EXISTS salesDetail CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS audit_log CASCADE;
+
+CREATE TABLE audit_log (
+    log_id SERIAL PRIMARY KEY,
+    table_name VARCHAR(50) NOT NULL,
+    action VARCHAR(10) NOT NULL,
+    record_id VARCHAR(10),
+    changed_by VARCHAR(50),
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE sales (
+    salesno VARCHAR(10) PRIMARY KEY,
+    custno VARCHAR(5) REFERENCES customer(custno) ON DELETE SET NULL,
+    empno VARCHAR(5) REFERENCES employee(empno) ON DELETE SET NULL,
+    sales_date DATE DEFAULT CURRENT_DATE,
+    total_amount NUMERIC(12, 2) NOT NULL
+);
+
+CREATE TABLE salesDetail (
+    salesno VARCHAR(10) REFERENCES sales(salesno) ON DELETE CASCADE,
+    prodno VARCHAR(10) REFERENCES product(prodno) ON DELETE CASCADE,
+    quantity INT NOT NULL,
+    subtotal NUMERIC(12, 2) NOT NULL,
+    PRIMARY KEY (salesno, prodno)
+);
+
+CREATE TABLE payment (
+    payno VARCHAR(10) PRIMARY KEY,
+    salesno VARCHAR(10) REFERENCES sales(salesno) ON DELETE CASCADE,
+    pay_date DATE DEFAULT CURRENT_DATE,
+    amount_paid NUMERIC(12, 2) NOT NULL,
+    payment_method VARCHAR(30)
+);
+
+CREATE TABLE priceHist (
+    histno SERIAL PRIMARY KEY,
+    prodno VARCHAR(10) REFERENCES product(prodno) ON DELETE CASCADE,
+    old_price NUMERIC(10, 2),
+    new_price NUMERIC(10, 2),
+    effective_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
