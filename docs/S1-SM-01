@@ -1,0 +1,28 @@
+Task 01: Repository Setup GuideBranch Protection Rules
+Go to your GitHub repository settings under Branches and turn on these rules for main and develop:Require a pull request before merging: At least 1 person must review and approve the code.Require status checks: Automated builds and tests must pass before merging.Require conversation resolution: All review comments must be addressed.Include administrators: Apply these rules to admins too.Prevent force pushes: Block force pushes to protect commit history.Prevent deletions: Stop anyone from accidentally deleting the branch.Pull Request Template
+Save this file at .github/pull_request_template.md:Description
+[Summary of changes and affected module/table]Related Issue
+[Link issue, e.g., Closes #XX]Changes Made
+[ ] Database schema updates (tables, foreign keys, status and stamp columns)
+[ ] Back-end logic or SQL queries (role checks, server-side filtering)
+[ ] Front-end UI components (Admin vs. User views)   Role and Access Testing Checklist
+[ ] Superadmin or Admin View Tested: Checked that soft-deleted rows (status = 'Inactive'), status badges, and audit stamps display properly.
+[ ] User View Tested: Checked that inactive rows are hidden and admin buttons or columns are restricted.
+[ ] Server-side Security: Confirmed permissions are enforced on the server, not just hidden in the UI.   Screenshots or Verification
+[Add screenshots or query validation results if needed]   Issue Templates
+Create these files under .github/ISSUE_TEMPLATE/:A. Bug Report Template (bug.md)
+name: Bug Report
+about: Report an error in the ERP system.
+title: '[BUG] '
+labels: 'bug'Describe the Bug
+[Clear description of the bug]Steps to ReproduceLog in as role (Superadmin, Admin, or User)   Go to module (Customers, Sales, Human Resources, Reports)   Perform action...See error.Expected Behavior
+[What should happen, like soft deleting updating the status instead of permanent deletion]   Environment and DetailsRole active:Error details:B. Feature Task Template (task.md)
+name: ERP Module Task
+about: Track tasks based on the Hope, Inc. ERP build plan.
+title: '[TASK] '
+labels: 'enhancement, build-roadmap'Task Context (Build Roadmap Step)
+[Reference the build step, like Step 4 for Customers or Step 7 for Sales]   Requirements and Acceptance Criteria
+[ ] Database tables, primary keys, foreign keys, and Status/Stamp columns added.
+[ ] UI built for Admin view and User view.
+[ ] Server validation and referential integrity enforced.   Additional Notes
+[Add specific SQL queries or data privacy rules]   Next StepsRepository Admin: Apply branch protection rules in GitHub under Settings > Branches.Developers: Add the .github/ folder with templates to the main branch.Scrum Master: Use these templates when creating backlog items for Database Setup and Sample Data seeding. 
