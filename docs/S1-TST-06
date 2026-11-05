@@ -1,0 +1,9 @@
+Sprint 1 Test Cases: Bug Reports and Fix Verification
+
+Task: S1-TST-06
+Project: Hope, Inc. ERP
+
+1. Test Cases: Bug Reporting & Fix Verification
+- TC-BUG-01: Log a new bug -> Verify that any UI, database, or permission bug found during Sprint 1 testing is properly documented with steps to reproduce, expected results, and actual results in GitHub Issues.
+- TC-BUG-02: Fix verification (Retesting) -> Verify that once developers commit a fix for a reported bug, the tester retests the specific scenario to confirm the issue is completely resolved.
+- TC-BUG-03: Close verified issues -> Verify that successfully retested bug reports are marked as closed in GitHub, ensuring a clean bug-free state before final sprint sign-off.
