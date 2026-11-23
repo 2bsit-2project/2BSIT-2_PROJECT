@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customers | Hope, Inc. ERP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #b7c3d2;
+        --sidebar: #0e1d2c;
+        --panel: #ffffff;
+        --primary: #3158e8;
+        --text: #17263f;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --danger: #b42318;
+      }
+      * { box-sizing: border-box; }
+      body {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      aside {
+        display: flex;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        flex-direction: column;
+        gap: 24px;
+        padding: 25px 19px 18px;
+        background: var(--sidebar);
+        color: #e8eef8;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; color: #f2f6fc; font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+      .brand-mark { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 8px; background: #16bfd0; color: white; font-size: 1.05rem; font-weight: 800; }
+      nav { display: grid; gap: 5px; }
+      nav a { display: flex; min-height: 40px; align-items: center; gap: 10px; border-radius: 8px; padding: 8px 10px; color: #aeb9c8; font-size: 0.84rem; font-weight: 500; text-decoration: none; }
+      nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      nav a[aria-current="page"] { background: var(--primary); color: #fff; }
+      .sidebar-bottom { display: flex; align-items: center; gap: 10px; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px; }
+      .avatar { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 50%; background: #263648; color: #eaf0f8; font-size: 0.74rem; font-weight: 700; }
+      .account { min-width: 0; flex: 1; margin: 0; color: #eff3f8; font-size: 0.75rem; line-height: 1.35; }
+      .account span { display: block; color: #8492a5; font-size: 0.68rem; }
+      .logout-button { border: 0; border-radius: 7px; padding: 7px; background: transparent; color: #96a4b7; font: inherit; font-size: 0.72rem; cursor: pointer; }
+      .logout-button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      main { width: min(100%, 1440px); min-width: 0; margin: 0 auto; padding: 28px clamp(20px, 3vw, 40px) 40px; }
+      .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+      h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 1.7rem); letter-spacing: -0.03em; }
+      .subtitle { margin: 4px 0 0; color: #334155; font-size: 0.85rem; }
+      .role-badge { border: 1px solid rgba(255,255,255,0.8); border-radius: 999px; padding: 7px 12px; background: rgba(255,255,255,0.85); color: #475569; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+      .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); box-shadow: 0 6px 16px rgba(34,49,72,0.04); }
+      .stat-label { color: var(--muted); font-size: 0.74rem; font-weight: 600; }
+      .stat-value { display: block; margin-top: 6px; font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); background: #f8fafc; }
+      .toolbar input, .toolbar select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.85rem; }
+      .toolbar input { flex: 1 1 260px; }
+      .toolbar button { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 14px; background: #fff; color: var(--text); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+      .toolbar button:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+      th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+      th { background: #f8fafc; color: #475569; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      tbody tr:hover { background: #f8fafc; }
+      .code-cell { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: var(--primary); white-space: nowrap; }
+      .pill { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; }
+      .pill-cod { background: #fef3c7; color: #92400e; }
+      .pill-30d { background: #dbeafe; color: #1e40af; }
+      .pill-45d { background: #ede9fe; color: #5b21b6; }
+      .pill-active { background: #dcfce7; color: #166534; }
+      .pill-inactive { background: #fee2e2; color: #991b1b; }
+      .state-box { padding: 28px 18px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+      .error-banner { display: none; margin: 14px 18px; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; background: #fef2f2; color: var(--danger); font-size: 0.84rem; }
+      .error-banner.visible { display: block; }
+      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    </style>
+  </head>
+  <body>
+    <aside aria-label="Main navigation">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">H</span><span>Hope, Inc. ERP</span></a>
+      <nav id="sidebar-nav">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/customers" aria-current="page">Customers</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="avatar" id="user-avatar">U</div>
+        <p class="account"><strong id="user-name">Loading...</strong><span id="user-email"></span></p>
+        <button class="logout-button" id="logout-btn" type="button">Log out</button>
+      </div>
+    </aside>
+    <main>
+      <div class="page-heading">
+        <div>
+          <h1>Customer Directory</h1>
+          <p class="subtitle">Search and filter Hope, Inc. customer accounts by name, code, address, payment term, and status.</p>
+        </div>
+        <span class="role-badge" id="role-badge">Checking role...</span>
+      </div>
+
+      <section class="stat-grid" aria-label="Customer summary">
+        <div class="stat-card"><span class="stat-label">Matching Customers</span><span class="stat-value" id="stat-total">0</span></div>
+        <div class="stat-card"><span class="stat-label">COD Term</span><span class="stat-value" id="stat-cod">0</span></div>
+        <div class="stat-card"><span class="stat-label">30D Term</span><span class="stat-value" id="stat-30d">0</span></div>
+        <div class="stat-card"><span class="stat-label">45D Term</span><span class="stat-value" id="stat-45d">0</span></div>
+      </section>
+
+      <section class="panel" aria-label="Customer list">
+        <div class="toolbar">
+          <input id="search-input" type="search" placeholder="Search by customer no., name, or address..." aria-label="Search customers" />
+          <select id="payterm-filter" aria-label="Filter by payment term">
+            <option value="">All payment terms</option>
+            <option value="COD">COD</option>
+            <option value="30D">30D</option>
+            <option value="45D">45D</option>
+          </select>
+          <select id="status-filter" aria-label="Filter by status">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="All">All statuses</option>
+          </select>
+          <button id="clear-filters" type="button">Reset</button>
+        </div>
+
+        <div class="error-banner" id="error-banner" role="alert"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer No.</th>
+                <th>Customer Name</th>
+                <th>Address</th>
+                <th>Payment Term</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="customers-tbody">
+              <tr><td colspan="5" class="state-box">Loading customers...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script>
+      const searchInput = document.getElementById('search-input');
+      const paytermFilter = document.getElementById('payterm-filter');
+      const statusFilter = document.getElementById('status-filter');
+      const clearBtn = document.getElementById('clear-filters');
+      const tbody = document.getElementById('customers-tbody');
+      const errorBanner = document.getElementById('error-banner');
+      let searchTimer = null;
+
+      function escapeHtml(text) {
+        return String(text ?? '')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      async function loadNavigation() {
+        const resp = await fetch('/api/dashboard/modules');
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (!resp.ok) return;
+        const { user, modules } = await resp.json();
+        document.getElementById('user-name').textContent = user.name || 'User';
+        document.getElementById('user-email').textContent = user.email || '';
+        document.getElementById('user-avatar').textContent = (user.name || 'U').trim().charAt(0).toUpperCase();
+        document.getElementById('role-badge').textContent = (user.role || 'user').toUpperCase();
+        const nav = document.getElementById('sidebar-nav');
+        nav.innerHTML = '<a href="/dashboard">Dashboard</a>' + modules.map((m) =>
+          `<a href="${escapeHtml(m.href)}"${m.id === 'customers' ? ' aria-current="page"' : ''}>${escapeHtml(m.label)}</a>`
+        ).join('');
+      }
+
+      async function loadCustomers() {
+        errorBanner.classList.remove('visible');
+        const params = new URLSearchParams();
+        if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
+        if (paytermFilter.value) params.set('payterm', paytermFilter.value);
+        if (statusFilter.value) params.set('status', statusFilter.value);
+        try {
+          const resp = await fetch(`/api/customers?${params.toString()}`);
+          if (resp.status === 401) { window.location.href = '/login'; return; }
+          const data = await resp.json();
+          if (!resp.ok) {
+            errorBanner.textContent = data.message || 'Unable to load customers.';
+            errorBanner.classList.add('visible');
+            tbody.innerHTML = '<tr><td colspan="5" class="state-box">Access denied or error loading customers.</td></tr>';
+            return;
+          }
+          const rows = data.customers || [];
+          document.getElementById('stat-total').textContent = rows.length;
+          document.getElementById('stat-cod').textContent = rows.filter((c) => c.payterm === 'COD').length;
+          document.getElementById('stat-30d').textContent = rows.filter((c) => c.payterm === '30D').length;
+          document.getElementById('stat-45d').textContent = rows.filter((c) => c.payterm === '45D').length;
+          if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="state-box">No customers match your current search and filter criteria.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = rows.map((c) => {
+            const termCls = c.payterm === 'COD' ? 'pill-cod' : c.payterm === '30D' ? 'pill-30d' : 'pill-45d';
+            const statusCls = String(c.status).toLowerCase() === 'inactive' ? 'pill-inactive' : 'pill-active';
+            return `<tr>
+              <td class="code-cell">${escapeHtml(c.custno)}</td>
+              <td>${escapeHtml(c.custname)}</td>
+              <td>${escapeHtml(c.address)}</td>
+              <td><span class="pill ${termCls}">${escapeHtml(c.payterm)}</span></td>
+              <td><span class="pill ${statusCls}">${escapeHtml(c.status)}</span></td>
+            </tr>`;
+          }).join('');
+        } catch (err) {
+          errorBanner.textContent = 'Network error while fetching customers.';
+          errorBanner.classList.add('visible');
+        }
+      }
+
+      searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadCustomers, 180); });
+      paytermFilter.addEventListener('change', loadCustomers);
+      statusFilter.addEventListener('change', loadCustomers);
+      clearBtn.addEventListener('click', () => { searchInput.value = ''; paytermFilter.value = ''; statusFilter.value = 'Active'; loadCustomers(); });
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+      });
+      loadNavigation();
+      loadCustomers();
+    </script>
+  </body>
+</html>
