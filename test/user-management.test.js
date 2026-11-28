@@ -3,22 +3,8 @@ const assert = require('node:assert/strict');
 
 process.env.ADMIN_EMAIL = `test-admin-${Date.now()}@example.com`;
 process.env.ADMIN_PASSWORD = 'admin-test-password';
-
 process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
 process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
-
-
-
-process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
-process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
-
-
-
-process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
-process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
-
-
-
 
 const { app } = require('../src/app');
 const {
@@ -40,18 +26,15 @@ async function postJson(url, body, cookie) {
 
 test('admin can manage users while regular users cannot', async () => {
   await ensureAdminUser(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
-
   const superAdmin = await ensureSuperAdminUser(
     process.env.SUPERADMIN_EMAIL,
     process.env.SUPERADMIN_PASSWORD
   );
-
   const server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
   try {
-
     const homepage = await fetch(`${baseUrl}/`);
     assert.equal(homepage.status, 200);
     assert.match(await homepage.text(), /One platform\. Every possibility\./);
@@ -65,28 +48,10 @@ test('admin can manage users while regular users cannot', async () => {
     const anonymousSuperAdminPage = await fetch(`${baseUrl}/superadmin/users`, { redirect: 'manual' });
     assert.equal(anonymousSuperAdminPage.status, 302);
 
-    const page = await fetch(`${baseUrl}/admin/users`);
-    assert.equal(page.status, 200);
-    assert.match(await page.text(), /User management/);
-
-    const superAdminPage = await fetch(`${baseUrl}/superadmin/users`);
-    assert.equal(superAdminPage.status, 200);
-    assert.match(await superAdminPage.text(), /Superadmin console/);
-
-
     const anonymousList = await fetch(`${baseUrl}/api/admin/users`);
     assert.equal(anonymousList.status, 401);
     const anonymousSuperAdminList = await fetch(`${baseUrl}/api/superadmin/users`);
     assert.equal(anonymousSuperAdminList.status, 401);
-
-
-
-
-    const anonymousList = await fetch(`${baseUrl}/api/admin/users`);
-    assert.equal(anonymousList.status, 401);
-
-
-
     const anonymousLegacyList = await fetch(`${baseUrl}/api/users`);
     assert.equal(anonymousLegacyList.status, 401);
 
@@ -96,7 +61,6 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(adminLogin.status, 200);
     const adminCookie = adminLogin.headers.get('set-cookie').split(';', 1)[0];
-
     const adminUser = (await adminLogin.json()).user;
     const adminDashboard = await fetch(`${baseUrl}/dashboard`, {
       headers: { Cookie: adminCookie }
@@ -108,7 +72,7 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(adminModulesResponse.status, 200);
     const adminModules = (await adminModulesResponse.json()).modules;
-    assert.deepEqual(adminModules.map((module) => module.id), ['users', 'rights']);
+    assert.deepEqual(adminModules.map((module) => module.id), ['users', 'rights', 'customers', 'products']);
     assert.equal(adminModules[1].href, '/admin/users#rights');
     const allowedAdminPage = await fetch(`${baseUrl}/admin/users`, {
       headers: { Cookie: adminCookie }
@@ -119,21 +83,15 @@ test('admin can manage users while regular users cannot', async () => {
       redirect: 'manual'
     });
     assert.equal(deniedAccountPage.status, 403);
-
-
-    const adminUser = (await adminLogin.json()).user;
-
     const selfRights = await fetch(`${baseUrl}/api/users/${adminUser.id}/permissions`, {
       headers: { Cookie: adminCookie }
     });
     assert.equal(selfRights.status, 403);
-
     const adminApprovalAttempt = await fetch(`${baseUrl}/api/superadmin/users/1/approve`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie }
     });
     assert.equal(adminApprovalAttempt.status, 403);
-
 
     const userCreation = await postJson(`${baseUrl}/api/admin/users`, {
       name: 'Managed User',
@@ -148,15 +106,6 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(createdUser.status, 'pending');
     assert.equal(createdUser.isBlocked, false);
     assert.equal(Object.hasOwn(createdUser, 'password'), false);
-
-
-
-
-
-    const superAdminEmail = `hidden-superadmin-${Date.now()}@example.com`;
-    const superAdmin = await ensureSuperAdminUser(superAdminEmail, 'superadmin-test-password');
-
-
 
     const managedUsers = await listManagedUsers();
     assert.equal(managedUsers.some((user) => user.id === superAdmin.id), false);
@@ -187,14 +136,12 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(listedUsers.some((user) => user.id === createdUser.id), true);
     assert.equal(listedUsers.some((user) => user.id === superAdmin.id), false);
 
-
     const superAdminLogin = await postJson(`${baseUrl}/api/auth/login`, {
       email: process.env.SUPERADMIN_EMAIL,
       password: process.env.SUPERADMIN_PASSWORD
     });
     assert.equal(superAdminLogin.status, 200);
     const superAdminCookie = superAdminLogin.headers.get('set-cookie').split(';', 1)[0];
-
     const superAdminPage = await fetch(`${baseUrl}/superadmin/users`, {
       headers: { Cookie: superAdminCookie }
     });
@@ -206,10 +153,9 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(superAdminModulesResponse.status, 200);
     const superAdminDashboardModules = (await superAdminModulesResponse.json()).modules;
     assert.deepEqual(superAdminDashboardModules.map((module) => module.id), [
-      'users', 'accounts', 'roles', 'rights'
+      'users', 'accounts', 'roles', 'rights', 'customers', 'products'
     ]);
     assert.equal(superAdminDashboardModules[0].href, '/superadmin/users#accounts');
-
     const superAdminUsers = await fetch(`${baseUrl}/api/superadmin/users`, {
       headers: { Cookie: superAdminCookie }
     });
@@ -240,7 +186,6 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(promoteAdmin.status, 200);
     assert.equal((await promoteAdmin.json()).user.role, 'admin');
-
 
     const adminRights = await fetch(`${baseUrl}/api/users/${createdUser.id}/permissions`, {
       headers: { Cookie: superAdminCookie }
@@ -281,14 +226,12 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(escalatedRights.status, 403);
 
-
     const promotedLogin = await postJson(`${baseUrl}/api/auth/login`, {
       email: createdUser.email,
       password: 'managed-user-password'
     });
     assert.equal(promotedLogin.status, 200);
     const promotedCookie = promotedLogin.headers.get('set-cookie').split(';', 1)[0];
-
     const allowedList = await fetch(`${baseUrl}/api/admin/users`, {
       headers: { Cookie: promotedCookie }
     });
@@ -311,7 +254,6 @@ test('admin can manage users while regular users cannot', async () => {
       })
     });
     assert.equal(delegatedRights.status, 200);
-
     const delegatedDashboardModules = await fetch(`${baseUrl}/api/dashboard/modules`, {
       headers: { Cookie: promotedCookie }
     });
@@ -324,7 +266,6 @@ test('admin can manage users while regular users cannot', async () => {
       headers: { Cookie: promotedCookie }
     });
     assert.equal(delegatedAccountPage.status, 200);
-
     const redundantRoleChange = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/role`, {
       method: 'PATCH',
       headers: {
@@ -373,7 +314,6 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(deniedBlockAdmin.status, 403);
 
-
     const blockAdmin = await fetch(`${baseUrl}/api/superadmin/users/${createdUser.id}/block`, {
       method: 'PATCH',
       headers: {
@@ -419,7 +359,6 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(hiddenSuperadminApproval.status, 404);
 
-
     const hiddenSuperadminDetail = await fetch(`${baseUrl}/api/users/${superAdmin.id}`, {
       headers: { Cookie: adminCookie }
     });
@@ -431,19 +370,7 @@ test('admin can manage users while regular users cannot', async () => {
         'Content-Type': 'application/json',
         Cookie: adminCookie
       },
-
       body: JSON.stringify({ name: 'Changed Superadmin', email: process.env.SUPERADMIN_EMAIL })
-
-
-      body: JSON.stringify({ name: 'Changed Superadmin', email: process.env.SUPERADMIN_EMAIL })
-
-
-      body: JSON.stringify({ name: 'Changed Superadmin', email: process.env.SUPERADMIN_EMAIL })
-
-      body: JSON.stringify({ name: 'Changed Superadmin', email: superAdminEmail })
-
-
-
     });
     assert.equal(hiddenSuperadminUpdate.status, 404);
 
@@ -463,7 +390,6 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(regularLogin.status, 200);
     const regularCookie = regularLogin.headers.get('set-cookie').split(';', 1)[0];
-
     const regularDashboardModules = await fetch(`${baseUrl}/api/dashboard/modules`, {
       headers: { Cookie: regularCookie }
     });
@@ -474,17 +400,14 @@ test('admin can manage users while regular users cannot', async () => {
       redirect: 'manual'
     });
     assert.equal(regularPage.status, 403);
-
     const forbiddenList = await fetch(`${baseUrl}/api/admin/users`, {
       headers: { Cookie: regularCookie }
     });
     assert.equal(forbiddenList.status, 403);
-
     const forbiddenRights = await fetch(`${baseUrl}/api/users/${superAdmin.id}/permissions`, {
       headers: { Cookie: regularCookie }
     });
     assert.equal(forbiddenRights.status, 403);
-
 
     const blockResponse = await fetch(`${baseUrl}/api/admin/users/${createdUser.id}/block`, {
       method: 'PATCH',
@@ -517,12 +440,6 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(unblockResponse.status, 200);
     assert.equal((await unblockResponse.json()).user.isBlocked, false);
-
-
-
-
-    const adminUser = (await adminLogin.json()).user;
-
 
     const selfBlockResponse = await fetch(`${baseUrl}/api/admin/users/${adminUser.id}/block`, {
       method: 'PATCH',

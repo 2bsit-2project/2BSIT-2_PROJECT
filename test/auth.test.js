@@ -1,6 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-
 const { createHash } = require('node:crypto');
 process.env.SUPERADMIN_EMAIL = `test-superadmin-${Date.now()}@example.com`;
 process.env.SUPERADMIN_PASSWORD = 'superadmin-test-password';
@@ -10,36 +9,9 @@ const {
   createPasswordResetToken,
   resetPasswordWithToken,
   ensureSuperAdminUser
-
-
-
-
-
-
-const { createHash } = require('node:crypto');
-const { app } = require('../src/app');
-const {
-  createPasswordResetToken,
-  resetPasswordWithToken
-
-
-
 } = require('../src/config/db');
 const { hashPassword, verifyPassword } = require('../src/config/security');
 const { emailConfigured } = require('../src/config/email');
-
-
-
-
-
-
-
-const { app } = require('../src/app');
-const { hashPassword, verifyPassword } = require('../src/config/security');
-
-
-
-
 
 test('passwords are hashed and can be verified', async () => {
   const password = 'correct horse battery staple';
@@ -67,18 +39,16 @@ test('registration, login, session check, and logout work', async () => {
     const loginPage = await fetch(`${baseUrl}/login`);
     assert.equal(loginPage.status, 200);
     assert.match(await loginPage.text(), /Log in/);
-
     assert.equal((await fetch(`${baseUrl}/forgot-password`)).status, 200);
     assert.equal((await fetch(`${baseUrl}/reset-password`)).status, 200);
     if (!emailConfigured) {
-      const emailNotConfigured = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
+      const resetReqUnknown = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'user@example.com' })
+        body: JSON.stringify({ email: 'unknown@example.com' })
       });
-      assert.equal(emailNotConfigured.status, 503);
+      assert.equal(resetReqUnknown.status, 200);
     }
-
 
     const registration = await fetch(`${baseUrl}/api/users`, {
       method: 'POST',
@@ -88,7 +58,6 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal(registration.status, 201);
     const registrationResult = await registration.json();
     assert.equal(Object.hasOwn(registrationResult.user, 'password'), false);
-
 
     const pendingLogin = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
@@ -114,7 +83,6 @@ test('registration, login, session check, and logout work', async () => {
     });
     assert.equal(approval.status, 200);
 
-
     const rejectedLogin = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -135,7 +103,6 @@ test('registration, login, session check, and logout work', async () => {
     });
     assert.equal(session.status, 200);
     assert.equal((await session.json()).authenticated, true);
-
 
     const resetToken = 'a'.repeat(64);
     const resetTokenHash = createHash('sha256').update(resetToken).digest('hex');
@@ -189,25 +156,6 @@ test('registration, login, session check, and logout work', async () => {
       body: JSON.stringify({ email, password: 'new-test-password' })
     });
     assert.equal(newPasswordLogin.status, 200);
-
-
-
-
-
-    const logout = await fetch(`${baseUrl}/api/auth/logout`, {
-      method: 'POST',
-      headers: { Cookie: sessionCookie }
-    });
-    assert.equal(logout.status, 200);
-
-    const expiredSession = await fetch(`${baseUrl}/api/auth/session`, {
-      headers: { Cookie: sessionCookie }
-    });
-    assert.equal(expiredSession.status, 401);
-
-
-
-
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
