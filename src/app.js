@@ -33,7 +33,11 @@ const {
   createProduct,
   updateProduct,
   setProductStatus,
-  VALID_UNITS
+  VALID_UNITS,
+  listPriceHistory,
+  addPriceHistory,
+  updatePriceHistory,
+  deletePriceHistory
 } = require('./config/db');
 const {
   PERMISSION_MODULES,
@@ -524,6 +528,131 @@ app.patch('/api/products/:prodcode/restore', requireDelegatedPermission('product
   } catch (error) {
     console.error('Unable to restore product:', error.message);
     return res.status(500).json({ message: 'Unable to restore product.' });
+  }
+});
+
+function isValidIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+}
+
+function validatePriceHistoryInput(body) {
+  const effdate = String(body?.effdate ?? '').trim();
+  const unitprice = Number(body?.unitprice);
+
+  if (!isValidIsoDate(effdate)) {
+    return { error: 'Effective date must be a valid date in YYYY-MM-DD format.' };
+  }
+  if (!Number.isFinite(unitprice) || unitprice <= 0) {
+    return { error: 'Unit price must be a number greater than 0.' };
+  }
+  return { data: { effdate, unitprice: Number(unitprice.toFixed(2)) } };
+}
+
+app.get('/api/products/:prodcode/prices', requireDelegatedPermission('prices.view'), async (req, res) => {
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const prices = await listPriceHistory(product.prodcode);
+    return res.json({
+      product,
+      prices,
+      total: prices.length,
+      permissions: getUserPermissions(req.permissionActor)
+    });
+  } catch (error) {
+    console.error('Unable to load price history:', error.message);
+    return res.status(500).json({ message: 'Unable to load price history.' });
+  }
+});
+
+app.post('/api/products/:prodcode/prices', requireDelegatedPermission('prices.create'), async (req, res) => {
+  const validation = validatePriceHistoryInput(req.body);
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const price = await addPriceHistory(product.prodcode, validation.data);
+    return res.status(201).json({
+      message: 'Price entry added successfully.',
+      price
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_PRICE_ENTRY') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to add price entry:', error.message);
+    return res.status(500).json({ message: 'Unable to add price entry.' });
+  }
+});
+
+app.put('/api/products/:prodcode/prices/:effdate', requireDelegatedPermission('prices.edit'), async (req, res) => {
+  const originalEffdate = String(req.params.effdate || '').trim();
+  if (!isValidIsoDate(originalEffdate)) {
+    return res.status(400).json({ message: 'Original effective date must be in YYYY-MM-DD format.' });
+  }
+  const validation = validatePriceHistoryInput(req.body);
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const price = await updatePriceHistory(product.prodcode, originalEffdate, validation.data);
+    if (!price) {
+      return res.status(404).json({ message: 'Price entry not found.' });
+    }
+    return res.json({
+      message: 'Price entry updated successfully.',
+      price
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_PRICE_ENTRY') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to update price entry:', error.message);
+    return res.status(500).json({ message: 'Unable to update price entry.' });
+  }
+});
+
+app.delete('/api/products/:prodcode/prices/:effdate', requireDelegatedPermission('prices.delete'), async (req, res) => {
+  const targetEffdate = String(req.params.effdate || '').trim();
+  if (!isValidIsoDate(targetEffdate)) {
+    return res.status(400).json({ message: 'Effective date must be in YYYY-MM-DD format.' });
+  }
+
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const price = await deletePriceHistory(product.prodcode, targetEffdate);
+    if (!price) {
+      return res.status(404).json({ message: 'Price entry not found.' });
+    }
+    return res.json({
+      message: 'Price entry deleted successfully.',
+      price
+    });
+  } catch (error) {
+    console.error('Unable to delete price entry:', error.message);
+    return res.status(500).json({ message: 'Unable to delete price entry.' });
   }
 });
 

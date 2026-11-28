@@ -212,6 +212,50 @@
           </table>
         </div>
       </section>
+
+      <section class="panel form-panel" id="price-history-panel" aria-label="Price history">
+        <div class="form-header">
+          <div>
+            <h2 id="price-panel-title">Price History</h2>
+            <p class="field-hint" id="price-panel-subtitle"></p>
+          </div>
+          <button class="btn-secondary" id="close-price-panel-btn" type="button">Close</button>
+        </div>
+
+        <div class="status-banner" id="price-status-banner" role="status" aria-live="polite"></div>
+
+        <form id="price-form" style="margin-bottom: 18px;" hidden>
+          <div class="form-grid">
+            <div class="field">
+              <label for="field-effdate">Effective Date</label>
+              <input id="field-effdate" name="effdate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="field-unitprice">Unit Price</label>
+              <input id="field-unitprice" name="unitprice" type="number" step="0.01" min="0.01" required placeholder="0.00" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" id="cancel-price-edit-btn" type="button" hidden>Cancel Edit</button>
+            <button class="btn-primary" id="save-price-btn" type="submit">Add Price</button>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Effective Date</th>
+                <th>Unit Price</th>
+                <th id="price-actions-header" hidden>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="prices-tbody">
+              <tr><td colspan="3" class="state-box">Select a product to view its price history.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
     <script>
       const searchInput = document.getElementById('search-input');
@@ -230,10 +274,24 @@
       const fieldDescription = document.getElementById('field-description');
       const fieldUnit = document.getElementById('field-unit');
       const saveProductBtn = document.getElementById('save-product-btn');
+      const pricePanel = document.getElementById('price-history-panel');
+      const pricePanelTitle = document.getElementById('price-panel-title');
+      const pricePanelSubtitle = document.getElementById('price-panel-subtitle');
+      const priceStatusBanner = document.getElementById('price-status-banner');
+      const priceForm = document.getElementById('price-form');
+      const fieldEffdate = document.getElementById('field-effdate');
+      const fieldUnitprice = document.getElementById('field-unitprice');
+      const savePriceBtn = document.getElementById('save-price-btn');
+      const cancelPriceEditBtn = document.getElementById('cancel-price-edit-btn');
+      const priceActionsHeader = document.getElementById('price-actions-header');
+      const pricesTbody = document.getElementById('prices-tbody');
       let searchTimer = null;
       let currentPermissions = [];
       let currentProducts = [];
       let editingProdcode = null;
+      let activePriceProdcode = null;
+      let currentPrices = [];
+      let editingEffdate = null;
 
       function escapeHtml(text) {
         return String(text ?? '')
@@ -316,7 +374,8 @@
           const canCreate = currentPermissions.includes('products.create');
           const canEdit = currentPermissions.includes('products.edit');
           const canDelete = currentPermissions.includes('products.delete');
-          const showActions = canEdit || canDelete;
+          const canViewPrices = currentPermissions.includes('prices.view');
+          const showActions = canEdit || canDelete || canViewPrices;
           newProductBtn.hidden = !canCreate;
           actionsHeader.hidden = !showActions;
           const colSpan = showActions ? 5 : 4;
@@ -334,6 +393,9 @@
             const isInactive = String(p.status).toLowerCase() === 'inactive';
             const statusCls = isInactive ? 'pill-inactive' : 'pill-active';
             const buttons = [];
+            if (canViewPrices) {
+              buttons.push(`<button class="btn-secondary view-prices-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Prices</button>`);
+            }
             if (canEdit) {
               buttons.push(`<button class="btn-secondary edit-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Edit</button>`);
             }
@@ -360,7 +422,85 @@
         }
       }
 
+      function showPriceBanner(message, type) {
+        priceStatusBanner.textContent = message;
+        priceStatusBanner.className = `status-banner visible ${type}`;
+      }
+
+      function clearPriceBanner() {
+        priceStatusBanner.textContent = '';
+        priceStatusBanner.className = 'status-banner';
+      }
+
+      function resetPriceForm() {
+        editingEffdate = null;
+        priceForm.reset();
+        savePriceBtn.textContent = 'Add Price';
+        cancelPriceEditBtn.hidden = true;
+        const canCreatePrice = currentPermissions.includes('prices.create');
+        priceForm.hidden = !canCreatePrice;
+      }
+
+      async function openPriceHistory(product) {
+        activePriceProdcode = product.prodcode;
+        pricePanelTitle.textContent = `Price History: ${product.prodcode}`;
+        pricePanelSubtitle.textContent = product.description || '';
+        clearPriceBanner();
+        resetPriceForm();
+        pricePanel.classList.add('open');
+        await loadPriceHistory();
+        pricePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      async function loadPriceHistory() {
+        if (!activePriceProdcode) return;
+        try {
+          const resp = await fetch(`/api/products/${encodeURIComponent(activePriceProdcode)}/prices`);
+          if (resp.status === 401) { window.location.href = '/login'; return; }
+          const data = await resp.json();
+          if (!resp.ok) {
+            showPriceBanner(data.message || 'Unable to load price history.', 'error');
+            pricesTbody.innerHTML = '<tr><td colspan="3" class="state-box">Unable to load price history.</td></tr>';
+            return;
+          }
+          const perms = Array.isArray(data.permissions) ? data.permissions : currentPermissions;
+          currentPrices = data.prices || [];
+          const canEditPrice = perms.includes('prices.edit');
+          const canDeletePrice = perms.includes('prices.delete');
+          const showPriceActions = canEditPrice || canDeletePrice;
+          priceActionsHeader.hidden = !showPriceActions;
+          const colSpan = showPriceActions ? 3 : 2;
+          if (!currentPrices.length) {
+            pricesTbody.innerHTML = `<tr><td colspan="${colSpan}" class="state-box">No price history entries recorded yet.</td></tr>`;
+            return;
+          }
+          pricesTbody.innerHTML = currentPrices.map((entry) => {
+            const btns = [];
+            if (canEditPrice) {
+              btns.push(`<button class="btn-secondary edit-price-btn" type="button" data-effdate="${escapeHtml(entry.effdate)}">Edit</button>`);
+            }
+            if (canDeletePrice) {
+              btns.push(`<button class="btn-danger delete-price-btn" type="button" data-effdate="${escapeHtml(entry.effdate)}">Delete</button>`);
+            }
+            const actionCell = showPriceActions ? `<td><div class="action-group">${btns.join('')}</div></td>` : '';
+            return `<tr>
+              <td class="code-cell">${escapeHtml(entry.effdate)}</td>
+              <td>${Number(entry.unitprice).toFixed(2)}</td>
+              ${actionCell}
+            </tr>`;
+          }).join('');
+        } catch (err) {
+          showPriceBanner('Network error while loading price history.', 'error');
+        }
+      }
+
       tbody.addEventListener('click', async (event) => {
+        const pricesBtn = event.target.closest('.view-prices-btn');
+        if (pricesBtn) {
+          const found = currentProducts.find((p) => p.prodcode === pricesBtn.dataset.prodcode);
+          if (found) await openPriceHistory(found);
+          return;
+        }
         const editBtn = event.target.closest('.edit-product-btn');
         if (editBtn) {
           const found = currentProducts.find((p) => p.prodcode === editBtn.dataset.prodcode);
@@ -445,6 +585,83 @@
       newProductBtn.addEventListener('click', openCreateForm);
       document.getElementById('close-form-btn').addEventListener('click', closeForm);
       document.getElementById('cancel-form-btn').addEventListener('click', closeForm);
+      document.getElementById('close-price-panel-btn').addEventListener('click', () => {
+        activePriceProdcode = null;
+        pricePanel.classList.remove('open');
+        resetPriceForm();
+      });
+      cancelPriceEditBtn.addEventListener('click', resetPriceForm);
+
+      pricesTbody.addEventListener('click', async (event) => {
+        const editBtn = event.target.closest('.edit-price-btn');
+        if (editBtn) {
+          const entry = currentPrices.find((p) => p.effdate === editBtn.dataset.effdate);
+          if (!entry) return;
+          editingEffdate = entry.effdate;
+          fieldEffdate.value = entry.effdate;
+          fieldUnitprice.value = Number(entry.unitprice).toFixed(2);
+          savePriceBtn.textContent = 'Update Price';
+          cancelPriceEditBtn.hidden = false;
+          priceForm.hidden = false;
+          fieldUnitprice.focus();
+          return;
+        }
+        const deleteBtn = event.target.closest('.delete-price-btn');
+        if (deleteBtn) {
+          const effdate = deleteBtn.dataset.effdate;
+          if (!window.confirm(`Delete price entry effective ${effdate} for ${activePriceProdcode}?`)) return;
+          clearPriceBanner();
+          try {
+            const resp = await fetch(`/api/products/${encodeURIComponent(activePriceProdcode)}/prices/${encodeURIComponent(effdate)}`, {
+              method: 'DELETE'
+            });
+            const result = await resp.json();
+            if (!resp.ok) {
+              showPriceBanner(result.message || 'Unable to delete price entry.', 'error');
+              return;
+            }
+            if (editingEffdate === effdate) resetPriceForm();
+            showPriceBanner(result.message || 'Price entry deleted successfully.', 'success');
+            await loadPriceHistory();
+          } catch (err) {
+            showPriceBanner('Network error while deleting price entry.', 'error');
+          }
+        }
+      });
+
+      priceForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!activePriceProdcode) return;
+        clearPriceBanner();
+        savePriceBtn.disabled = true;
+        const payload = {
+          effdate: fieldEffdate.value,
+          unitprice: Number(fieldUnitprice.value)
+        };
+        try {
+          const url = editingEffdate
+            ? `/api/products/${encodeURIComponent(activePriceProdcode)}/prices/${encodeURIComponent(editingEffdate)}`
+            : `/api/products/${encodeURIComponent(activePriceProdcode)}/prices`;
+          const method = editingEffdate ? 'PUT' : 'POST';
+          const resp = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            showPriceBanner(result.message || 'Unable to save price entry.', 'error');
+            return;
+          }
+          resetPriceForm();
+          showPriceBanner(result.message || 'Price entry saved successfully.', 'success');
+          await loadPriceHistory();
+        } catch (err) {
+          showPriceBanner('Network error while saving price entry.', 'error');
+        } finally {
+          savePriceBtn.disabled = false;
+        }
+      });
       searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadProducts, 180); });
       unitFilter.addEventListener('change', loadProducts);
       statusFilter.addEventListener('change', loadProducts);

@@ -153,6 +153,57 @@ test('product list supports search, unit filter, and permission checks', async (
       headers: { Cookie: superCookie }
     })).status, 404);
 
+    const pc0001Prices = await (await fetch(`${baseUrl}/api/products/PC0001/prices`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(pc0001Prices.total, 2);
+    assert.equal(pc0001Prices.prices[0].effdate, '2010-07-12');
+    assert.equal(pc0001Prices.prices[0].unitprice, 454.54);
+
+    const addPrice = await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
+      effdate: '2026-01-15',
+      unitprice: 525.5
+    }, superCookie);
+    assert.equal(addPrice.status, 201);
+    assert.equal((await addPrice.json()).price.unitprice, 525.5);
+
+    assert.equal((await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
+      effdate: '2026-01-15',
+      unitprice: 530
+    }, superCookie)).status, 409);
+
+    assert.equal((await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
+      effdate: '2026-02-30',
+      unitprice: 100
+    }, superCookie)).status, 400);
+    assert.equal((await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
+      effdate: '2026-02-01',
+      unitprice: 0
+    }, superCookie)).status, 400);
+
+    const editPrice = await requestJson(`${baseUrl}/api/products/PC0001/prices/2026-01-15`, 'PUT', {
+      effdate: '2026-01-20',
+      unitprice: 549.99
+    }, superCookie);
+    assert.equal(editPrice.status, 200);
+    const editedPriceData = (await editPrice.json()).price;
+    assert.equal(editedPriceData.effdate, '2026-01-20');
+    assert.equal(editedPriceData.unitprice, 549.99);
+
+    const deletePrice = await fetch(`${baseUrl}/api/products/PC0001/prices/2026-01-20`, {
+      method: 'DELETE',
+      headers: { Cookie: superCookie }
+    });
+    assert.equal(deletePrice.status, 200);
+
+    assert.equal((await fetch(`${baseUrl}/api/products/PC0001/prices/2026-01-20`, {
+      method: 'DELETE',
+      headers: { Cookie: superCookie }
+    })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/products/ZZ9999/prices`, {
+      headers: { Cookie: superCookie }
+    })).status, 404);
+
     const userEmail = `prod-user-${Date.now()}@example.com`;
     const regResp = await requestJson(`${baseUrl}/api/users`, 'POST', {
       name: 'Regular User',
@@ -213,6 +264,13 @@ test('product list supports search, unit filter, and permission checks', async (
       method: 'PATCH',
       headers: { Cookie: adminCookie }
     })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/products/PC0001/prices`, {
+      headers: { Cookie: adminCookie }
+    })).status, 403);
+    assert.equal((await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
+      effdate: '2026-03-01',
+      unitprice: 100
+    }, adminCookie)).status, 403);
 
     const revoke = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
       permissions: ['users.view']

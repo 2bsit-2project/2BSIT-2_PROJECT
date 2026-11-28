@@ -26,6 +26,9 @@ const {
   VALID_UNITS,
   DEFAULT_PRODUCTS
 } = require('./products-seed');
+const {
+  DEFAULT_PRICE_HISTORY
+} = require('./price-history-seed');
 
 const useSsl = Boolean(
   DB_SSL
@@ -68,6 +71,9 @@ const inMemoryCustomers = DEFAULT_CUSTOMERS.map((customer) => ({
 const inMemoryProducts = DEFAULT_PRODUCTS.map((product) => ({
   ...product,
   stamp: new Date().toISOString()
+}));
+const inMemoryPriceHistory = DEFAULT_PRICE_HISTORY.map((entry) => ({
+  ...entry
 }));
 let nextUserId = 1;
 
@@ -153,6 +159,25 @@ async function initializeDatabase() {
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (prodcode) DO NOTHING`,
           [product.prodcode, product.description, product.unit, product.status]
+        );
+      }
+    }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pricehist (
+        effdate DATE NOT NULL,
+        prodcode VARCHAR(6) NOT NULL REFERENCES product(prodcode),
+        unitprice DECIMAL(10,2) NOT NULL CHECK (unitprice > 0),
+        PRIMARY KEY (effdate, prodcode)
+      );
+    `);
+    const priceCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM pricehist');
+    if (priceCountResult.rows[0]?.count === 0) {
+      for (const entry of DEFAULT_PRICE_HISTORY) {
+        await pool.query(
+          `INSERT INTO pricehist (effdate, prodcode, unitprice)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (effdate, prodcode) DO NOTHING`,
+          [entry.effdate, entry.prodcode, entry.unitprice]
         );
       }
     }
@@ -1274,6 +1299,165 @@ async function setProductStatus(prodcode, status) {
   return { ...product };
 }
 
+function formatDateOnly(value) {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  return String(value || '').trim().slice(0, 10);
+}
+
+function priceHistoryRowToRecord(row) {
+  return {
+    prodcode: row.prodcode,
+    effdate: formatDateOnly(row.effdate),
+    unitprice: Number(row.unitprice)
+  };
+}
+
+async function listPriceHistory(prodcode) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  if (!normalizedCode) {
+    return [];
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `SELECT prodcode, TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate, unitprice
+       FROM pricehist
+       WHERE UPPER(prodcode) = $1
+       ORDER BY effdate DESC`,
+      [normalizedCode]
+    );
+    return result.rows.map(priceHistoryRowToRecord);
+  }
+
+  return inMemoryPriceHistory
+    .filter((entry) => normalizeProdCode(entry.prodcode) === normalizedCode)
+    .sort((a, b) => b.effdate.localeCompare(a.effdate))
+    .map((entry) => ({
+      prodcode: entry.prodcode,
+      effdate: formatDateOnly(entry.effdate),
+      unitprice: Number(entry.unitprice)
+    }));
+}
+
+async function addPriceHistory(prodcode, { effdate, unitprice }) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const normalizedDate = formatDateOnly(effdate);
+  const numericPrice = Number(Number(unitprice).toFixed(2));
+
+  if (dbStatus === 'connected') {
+    try {
+      const result = await pool.query(
+        `INSERT INTO pricehist (effdate, prodcode, unitprice)
+         VALUES ($1::date, $2, $3)
+         RETURNING prodcode, TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate, unitprice`,
+        [normalizedDate, normalizedCode, numericPrice]
+      );
+      return priceHistoryRowToRecord(result.rows[0]);
+    } catch (error) {
+      if (error.code === '23505') {
+        const duplicateError = new Error(`A price entry for ${normalizedCode} on ${normalizedDate} already exists.`);
+        duplicateError.code = 'DUPLICATE_PRICE_ENTRY';
+        throw duplicateError;
+      }
+      throw error;
+    }
+  }
+
+  const duplicate = inMemoryPriceHistory.find((entry) =>
+    normalizeProdCode(entry.prodcode) === normalizedCode
+    && formatDateOnly(entry.effdate) === normalizedDate
+  );
+  if (duplicate) {
+    const duplicateError = new Error(`A price entry for ${normalizedCode} on ${normalizedDate} already exists.`);
+    duplicateError.code = 'DUPLICATE_PRICE_ENTRY';
+    throw duplicateError;
+  }
+
+  const record = {
+    prodcode: normalizedCode,
+    effdate: normalizedDate,
+    unitprice: numericPrice
+  };
+  inMemoryPriceHistory.push(record);
+  return { ...record };
+}
+
+async function updatePriceHistory(prodcode, originalEffdate, { effdate, unitprice }) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const oldDate = formatDateOnly(originalEffdate);
+  const newDate = formatDateOnly(effdate);
+  const numericPrice = Number(Number(unitprice).toFixed(2));
+
+  if (dbStatus === 'connected') {
+    try {
+      const result = await pool.query(
+        `UPDATE pricehist
+         SET effdate = $1::date, unitprice = $2
+         WHERE UPPER(prodcode) = $3 AND effdate = $4::date
+         RETURNING prodcode, TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate, unitprice`,
+        [newDate, numericPrice, normalizedCode, oldDate]
+      );
+      return result.rows[0] ? priceHistoryRowToRecord(result.rows[0]) : null;
+    } catch (error) {
+      if (error.code === '23505') {
+        const duplicateError = new Error(`A price entry for ${normalizedCode} on ${newDate} already exists.`);
+        duplicateError.code = 'DUPLICATE_PRICE_ENTRY';
+        throw duplicateError;
+      }
+      throw error;
+    }
+  }
+
+  const target = inMemoryPriceHistory.find((entry) =>
+    normalizeProdCode(entry.prodcode) === normalizedCode
+    && formatDateOnly(entry.effdate) === oldDate
+  );
+  if (!target) {
+    return null;
+  }
+  if (newDate !== oldDate) {
+    const collision = inMemoryPriceHistory.find((entry) =>
+      normalizeProdCode(entry.prodcode) === normalizedCode
+      && formatDateOnly(entry.effdate) === newDate
+    );
+    if (collision) {
+      const duplicateError = new Error(`A price entry for ${normalizedCode} on ${newDate} already exists.`);
+      duplicateError.code = 'DUPLICATE_PRICE_ENTRY';
+      throw duplicateError;
+    }
+  }
+  target.effdate = newDate;
+  target.unitprice = numericPrice;
+  return { ...target };
+}
+
+async function deletePriceHistory(prodcode, effdate) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const targetDate = formatDateOnly(effdate);
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `DELETE FROM pricehist
+       WHERE UPPER(prodcode) = $1 AND effdate = $2::date
+       RETURNING prodcode, TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate, unitprice`,
+      [normalizedCode, targetDate]
+    );
+    return result.rows[0] ? priceHistoryRowToRecord(result.rows[0]) : null;
+  }
+
+  const index = inMemoryPriceHistory.findIndex((entry) =>
+    normalizeProdCode(entry.prodcode) === normalizedCode
+    && formatDateOnly(entry.effdate) === targetDate
+  );
+  if (index === -1) {
+    return null;
+  }
+  const [removed] = inMemoryPriceHistory.splice(index, 1);
+  return { ...removed };
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -1310,5 +1494,9 @@ module.exports = {
   createProduct,
   updateProduct,
   setProductStatus,
-  VALID_UNITS
+  VALID_UNITS,
+  listPriceHistory,
+  addPriceHistory,
+  updatePriceHistory,
+  deletePriceHistory
 };

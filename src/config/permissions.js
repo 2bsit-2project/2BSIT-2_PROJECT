@@ -52,6 +52,16 @@ const PERMISSION_MODULES = [
       { id: 'edit', label: 'Edit products' },
       { id: 'delete', label: 'Delete or restore products' }
     ]
+  },
+  {
+    id: 'prices',
+    label: 'Price history',
+    actions: [
+      { id: 'view', label: 'View price history' },
+      { id: 'create', label: 'Add price entries' },
+      { id: 'edit', label: 'Edit price entries' },
+      { id: 'delete', label: 'Delete price entries' }
+    ]
   }
 ];
 
@@ -72,7 +82,11 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'products.view',
   'products.create',
   'products.edit',
-  'products.delete'
+  'products.delete',
+  'prices.view',
+  'prices.create',
+  'prices.edit',
+  'prices.delete'
 ];
 
 const DASHBOARD_MODULES = [
