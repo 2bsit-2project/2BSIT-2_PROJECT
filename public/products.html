@@ -62,6 +62,11 @@
       .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
       .btn-secondary { height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
       .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
+      .btn-danger { height: 36px; border: 1px solid #fecaca; border-radius: 8px; padding: 0 12px; background: #fef2f2; color: var(--danger); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-danger:hover { background: #fee2e2; border-color: #fca5a5; }
+      .btn-restore { height: 36px; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0 12px; background: #f0fdf4; color: var(--success); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-restore:hover { background: #dcfce7; border-color: #86efac; }
+      .action-group { display: flex; gap: 8px; flex-wrap: wrap; }
       .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
       .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); box-shadow: 0 6px 16px rgba(34,49,72,0.04); }
       .stat-label { color: var(--muted); font-size: 0.74rem; font-weight: 600; }
@@ -310,9 +315,11 @@
           currentProducts = data.products || [];
           const canCreate = currentPermissions.includes('products.create');
           const canEdit = currentPermissions.includes('products.edit');
+          const canDelete = currentPermissions.includes('products.delete');
+          const showActions = canEdit || canDelete;
           newProductBtn.hidden = !canCreate;
-          actionsHeader.hidden = !canEdit;
-          const colSpan = canEdit ? 5 : 4;
+          actionsHeader.hidden = !showActions;
+          const colSpan = showActions ? 5 : 4;
 
           document.getElementById('stat-total').textContent = currentProducts.length;
           document.getElementById('stat-ea').textContent = currentProducts.filter((p) => p.unit === 'ea').length;
@@ -324,9 +331,21 @@
           }
           tbody.innerHTML = currentProducts.map((p) => {
             const unitCls = p.unit === 'ea' ? 'pill-ea' : p.unit === 'pc' ? 'pill-pc' : 'pill-other';
-            const statusCls = String(p.status).toLowerCase() === 'inactive' ? 'pill-inactive' : 'pill-active';
-            const actionCell = canEdit
-              ? `<td><button class="btn-secondary edit-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Edit</button></td>`
+            const isInactive = String(p.status).toLowerCase() === 'inactive';
+            const statusCls = isInactive ? 'pill-inactive' : 'pill-active';
+            const buttons = [];
+            if (canEdit) {
+              buttons.push(`<button class="btn-secondary edit-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Edit</button>`);
+            }
+            if (canDelete) {
+              if (isInactive) {
+                buttons.push(`<button class="btn-restore restore-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Restore</button>`);
+              } else {
+                buttons.push(`<button class="btn-danger delete-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Deactivate</button>`);
+              }
+            }
+            const actionCell = showActions
+              ? `<td><div class="action-group">${buttons.join('')}</div></td>`
               : '';
             return `<tr>
               <td class="code-cell">${escapeHtml(p.prodcode)}</td>
@@ -341,11 +360,50 @@
         }
       }
 
-      tbody.addEventListener('click', (event) => {
-        const btn = event.target.closest('.edit-product-btn');
-        if (!btn) return;
-        const found = currentProducts.find((p) => p.prodcode === btn.dataset.prodcode);
-        if (found) openEditForm(found);
+      tbody.addEventListener('click', async (event) => {
+        const editBtn = event.target.closest('.edit-product-btn');
+        if (editBtn) {
+          const found = currentProducts.find((p) => p.prodcode === editBtn.dataset.prodcode);
+          if (found) openEditForm(found);
+          return;
+        }
+        const deleteBtn = event.target.closest('.delete-product-btn');
+        if (deleteBtn) {
+          const prodcode = deleteBtn.dataset.prodcode;
+          if (!window.confirm(`Deactivate product ${prodcode}? You can restore this record later.`)) return;
+          clearBanner();
+          try {
+            const resp = await fetch(`/api/products/${encodeURIComponent(prodcode)}`, { method: 'DELETE' });
+            const result = await resp.json();
+            if (!resp.ok) {
+              showBanner(result.message || 'Unable to deactivate product.', 'error');
+              return;
+            }
+            showBanner(result.message || 'Product deactivated successfully.', 'success');
+            await loadProducts();
+          } catch (err) {
+            showBanner('Network error while deactivating product.', 'error');
+          }
+          return;
+        }
+        const restoreBtn = event.target.closest('.restore-product-btn');
+        if (restoreBtn) {
+          const prodcode = restoreBtn.dataset.prodcode;
+          if (!window.confirm(`Restore product ${prodcode} to Active status?`)) return;
+          clearBanner();
+          try {
+            const resp = await fetch(`/api/products/${encodeURIComponent(prodcode)}/restore`, { method: 'PATCH' });
+            const result = await resp.json();
+            if (!resp.ok) {
+              showBanner(result.message || 'Unable to restore product.', 'error');
+              return;
+            }
+            showBanner(result.message || 'Product restored successfully.', 'success');
+            await loadProducts();
+          } catch (err) {
+            showBanner('Network error while restoring product.', 'error');
+          }
+        }
       });
 
       productForm.addEventListener('submit', async (event) => {

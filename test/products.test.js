@@ -119,6 +119,40 @@ test('product list supports search, unit filter, and permission checks', async (
       unit: 'ea'
     }, superCookie)).status, 404);
 
+    const softDelete = await fetch(`${baseUrl}/api/products/PD0001`, {
+      method: 'DELETE',
+      headers: { Cookie: superCookie }
+    });
+    assert.equal(softDelete.status, 200);
+    assert.equal((await softDelete.json()).product.status, 'Inactive');
+
+    const activeAfterDelete = await (await fetch(`${baseUrl}/api/products?search=PD0001`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(activeAfterDelete.total, 0);
+
+    const inactiveList = await (await fetch(`${baseUrl}/api/products?status=Inactive&search=PD0001`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(inactiveList.total, 1);
+    assert.equal(inactiveList.products[0].status, 'Inactive');
+
+    const restoreResp = await fetch(`${baseUrl}/api/products/PD0001/restore`, {
+      method: 'PATCH',
+      headers: { Cookie: superCookie }
+    });
+    assert.equal(restoreResp.status, 200);
+    assert.equal((await restoreResp.json()).product.status, 'Active');
+
+    assert.equal((await fetch(`${baseUrl}/api/products/ZZ9999`, {
+      method: 'DELETE',
+      headers: { Cookie: superCookie }
+    })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/products/ZZ9999/restore`, {
+      method: 'PATCH',
+      headers: { Cookie: superCookie }
+    })).status, 404);
+
     const userEmail = `prod-user-${Date.now()}@example.com`;
     const regResp = await requestJson(`${baseUrl}/api/users`, 'POST', {
       name: 'Regular User',
@@ -171,6 +205,14 @@ test('product list supports search, unit filter, and permission checks', async (
       description: 'Blocked Edit',
       unit: 'ea'
     }, adminCookie)).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/products/${adminProdCode}`, {
+      method: 'DELETE',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/products/${adminProdCode}/restore`, {
+      method: 'PATCH',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
 
     const revoke = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
       permissions: ['users.view']

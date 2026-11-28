@@ -32,6 +32,7 @@ const {
   getProductByCode,
   createProduct,
   updateProduct,
+  setProductStatus,
   VALID_UNITS
 } = require('./config/db');
 const {
@@ -491,6 +492,38 @@ app.put('/api/products/:prodcode', requireDelegatedPermission('products.edit'), 
   } catch (error) {
     console.error('Unable to update product:', error.message);
     return res.status(500).json({ message: 'Unable to update product.' });
+  }
+});
+
+app.delete('/api/products/:prodcode', requireDelegatedPermission('products.delete'), async (req, res) => {
+  try {
+    const product = await setProductStatus(req.params.prodcode, 'Inactive');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({
+      message: 'Product deactivated successfully.',
+      product
+    });
+  } catch (error) {
+    console.error('Unable to deactivate product:', error.message);
+    return res.status(500).json({ message: 'Unable to deactivate product.' });
+  }
+});
+
+app.patch('/api/products/:prodcode/restore', requireDelegatedPermission('products.delete'), async (req, res) => {
+  try {
+    const product = await setProductStatus(req.params.prodcode, 'Active');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({
+      message: 'Product restored successfully.',
+      product
+    });
+  } catch (error) {
+    console.error('Unable to restore product:', error.message);
+    return res.status(500).json({ message: 'Unable to restore product.' });
   }
 });
 

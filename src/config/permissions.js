@@ -71,7 +71,8 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'customers.delete',
   'products.view',
   'products.create',
-  'products.edit'
+  'products.edit',
+  'products.delete'
 ];
 
 const DASHBOARD_MODULES = [

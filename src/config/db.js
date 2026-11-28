@@ -1250,6 +1250,30 @@ async function updateProduct(prodcode, { description, unit }) {
   return { ...product };
 }
 
+async function setProductStatus(prodcode, status) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const nextStatus = String(status || '').trim().toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE product
+       SET status = $1, stamp = NOW()
+       WHERE UPPER(prodcode) = $2
+       RETURNING prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp`,
+      [nextStatus, normalizedCode]
+    );
+    return result.rows[0] ? productRowToRecord(result.rows[0]) : null;
+  }
+
+  const product = inMemoryProducts.find((item) => normalizeProdCode(item.prodcode) === normalizedCode);
+  if (!product) {
+    return null;
+  }
+  product.status = nextStatus;
+  product.stamp = new Date().toISOString();
+  return { ...product };
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -1285,5 +1309,6 @@ module.exports = {
   getProductByCode,
   createProduct,
   updateProduct,
+  setProductStatus,
   VALID_UNITS
 };
