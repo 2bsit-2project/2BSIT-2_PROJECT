@@ -18,6 +18,8 @@ function readPort(name, fallback) {
 module.exports = {
   PORT: readPort('PORT', 3000),
   NODE_ENV: process.env.NODE_ENV || 'development',
+  DATABASE_URL: process.env.DATABASE_URL || '',
+  DB_SSL: process.env.DB_SSL === 'true',
   DB_HOST: process.env.DB_HOST || 'localhost',
   DB_PORT: readPort('DB_PORT', 5432),
   DB_NAME: process.env.DB_NAME || 'infoman',

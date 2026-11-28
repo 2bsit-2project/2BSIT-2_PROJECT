@@ -161,16 +161,10 @@
       </p>
 
       <form id="registerForm">
-        <div class="name-row">
-          <label>
-            First name
-            <input type="text" name="firstName" autocomplete="given-name" placeholder="Jane" required />
-          </label>
-          <label>
-            Last name
-            <input type="text" name="lastName" autocomplete="family-name" placeholder="Doe" required />
-          </label>
-        </div>
+        <label>
+          Full name
+          <input type="text" name="name" autocomplete="name" placeholder="Jane Doe" required />
+        </label>
 
         <label>
           Email address
@@ -198,10 +192,8 @@
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(form);
-        const firstName = String(formData.get('firstName') || '').trim();
-        const lastName = String(formData.get('lastName') || '').trim();
         const payload = {
-          name: [firstName, lastName].filter(Boolean).join(' '),
+          name: String(formData.get('name') || '').trim(),
           email: String(formData.get('email') || '').trim(),
           password: String(formData.get('password') || '')
         };

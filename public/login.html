@@ -289,7 +289,7 @@
           passwordInput.type = 'password';
           passwordToggle.setAttribute('aria-pressed', 'false');
           passwordToggle.setAttribute('aria-label', 'Show password');
-          await refreshSession();
+          window.location.assign('/dashboard');
         } catch (error) {
           showStatus(error.message || 'Unable to log in.', 'error');
         } finally {

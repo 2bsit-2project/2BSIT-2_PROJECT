@@ -126,6 +126,45 @@ test('customer list, create, edit, and permission checks work end to end', async
     }, superCookie);
     assert.equal(missingUpdate.status, 404);
 
+    const softDelete = await fetch(`${baseUrl}/api/customers/C0030`, {
+      method: 'DELETE',
+      headers: { Cookie: superCookie }
+    });
+    assert.equal(softDelete.status, 200);
+    assert.equal((await softDelete.json()).customer.status, 'Inactive');
+
+    const activeAfterDelete = await (await fetch(`${baseUrl}/api/customers?search=C0030`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(activeAfterDelete.total, 0);
+
+    const inactiveList = await (await fetch(`${baseUrl}/api/customers?status=Inactive&search=C0030`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(inactiveList.total, 1);
+    assert.equal(inactiveList.customers[0].status, 'Inactive');
+
+    const restoreResp = await fetch(`${baseUrl}/api/customers/C0030/restore`, {
+      method: 'PATCH',
+      headers: { Cookie: superCookie }
+    });
+    assert.equal(restoreResp.status, 200);
+    assert.equal((await restoreResp.json()).customer.status, 'Active');
+
+    const activeAfterRestore = await (await fetch(`${baseUrl}/api/customers?search=C0030`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(activeAfterRestore.total, 1);
+
+    assert.equal((await fetch(`${baseUrl}/api/customers/C9999`, {
+      method: 'DELETE',
+      headers: { Cookie: superCookie }
+    })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/customers/C9999/restore`, {
+      method: 'PATCH',
+      headers: { Cookie: superCookie }
+    })).status, 404);
+
     const userEmail = `cust-user-${Date.now()}@example.com`;
     const regResp = await requestJson(`${baseUrl}/api/users`, 'POST', {
       name: 'Regular User',
@@ -196,6 +235,14 @@ test('customer list, create, edit, and permission checks work end to end', async
       address: '10 Denied St',
       payterm: 'COD'
     }, adminCookie)).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/customers/${adminCreatedCode}`, {
+      method: 'DELETE',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/customers/${adminCreatedCode}/restore`, {
+      method: 'PATCH',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
 
     const revokeAll = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
       permissions: ['users.view']

@@ -26,6 +26,7 @@ const {
   getCustomerByNo,
   createCustomer,
   updateCustomer,
+  setCustomerStatus,
   VALID_PAYTERMS
 } = require('./config/db');
 const {
@@ -341,6 +342,38 @@ app.put('/api/customers/:custno', requireDelegatedPermission('customers.edit'), 
   }
 });
 
+app.delete('/api/customers/:custno', requireDelegatedPermission('customers.delete'), async (req, res) => {
+  try {
+    const customer = await setCustomerStatus(req.params.custno, 'Inactive');
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({
+      message: 'Customer deactivated successfully.',
+      customer
+    });
+  } catch (error) {
+    console.error('Unable to deactivate customer:', error.message);
+    return res.status(500).json({ message: 'Unable to deactivate customer.' });
+  }
+});
+
+app.patch('/api/customers/:custno/restore', requireDelegatedPermission('customers.delete'), async (req, res) => {
+  try {
+    const customer = await setCustomerStatus(req.params.custno, 'Active');
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({
+      message: 'Customer restored successfully.',
+      customer
+    });
+  } catch (error) {
+    console.error('Unable to restore customer:', error.message);
+    return res.status(500).json({ message: 'Unable to restore customer.' });
+  }
+});
+
 app.get('/api/dashboard/modules', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -419,7 +452,7 @@ app.get('/api/auth/session', async (req, res) => {
 });
 
 app.post('/api/auth/password-reset/request', async (req, res) => {
-  if (!emailConfigured) {
+  if (!emailConfigured && NODE_ENV === 'production') {
     return res.status(503).json({ message: 'Password reset email is not configured. Contact the administrator.' });
   }
 
@@ -430,6 +463,7 @@ app.post('/api/auth/password-reset/request', async (req, res) => {
     }
 
     const user = await getUserByEmail(email);
+    let resetUrl = null;
     if (user) {
       const token = randomBytes(32).toString('hex');
       await createPasswordResetToken(
@@ -437,15 +471,27 @@ app.post('/api/auth/password-reset/request', async (req, res) => {
         user.id,
         new Date(Date.now() + PASSWORD_RESET_DURATION_MS)
       );
-      try {
-        await sendPasswordResetEmail(user.email, token);
-      } catch (error) {
-        await deletePasswordResetTokens(user.id);
-        throw error;
+      if (emailConfigured) {
+        try {
+          await sendPasswordResetEmail(user.email, token);
+        } catch (error) {
+          await deletePasswordResetTokens(user.id);
+          throw error;
+        }
+      } else {
+        resetUrl = `/reset-password?token=${encodeURIComponent(token)}`;
       }
     }
 
-    return res.json({ message: 'If that email is registered, a password reset link has been sent.' });
+    const payload = {
+      message: resetUrl
+        ? 'Password reset link is ready. Open the link below to set a new password.'
+        : 'If that email is registered, a password reset link has been sent.'
+    };
+    if (resetUrl) {
+      payload.resetUrl = resetUrl;
+    }
+    return res.json(payload);
   } catch (error) {
     console.error('Unable to request password reset:', error.message);
     return res.status(500).json({ message: 'Unable to send a password reset email. Please try again later.' });

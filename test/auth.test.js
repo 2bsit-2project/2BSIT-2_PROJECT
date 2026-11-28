@@ -42,12 +42,12 @@ test('registration, login, session check, and logout work', async () => {
     assert.equal((await fetch(`${baseUrl}/forgot-password`)).status, 200);
     assert.equal((await fetch(`${baseUrl}/reset-password`)).status, 200);
     if (!emailConfigured) {
-      const emailNotConfigured = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
+      const resetReqUnknown = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'user@example.com' })
+        body: JSON.stringify({ email: 'unknown@example.com' })
       });
-      assert.equal(emailNotConfigured.status, 503);
+      assert.equal(resetReqUnknown.status, 200);
     }
 
     const registration = await fetch(`${baseUrl}/api/users`, {

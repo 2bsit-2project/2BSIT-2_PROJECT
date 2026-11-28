@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
 const {
+  DATABASE_URL,
+  DB_SSL,
   DB_HOST,
   DB_PORT,
   DB_NAME,
@@ -21,17 +23,34 @@ const {
   DEFAULT_CUSTOMERS
 } = require('./customers-seed');
 
-const pool = new Pool({
-  host: DB_HOST,
-  port: DB_PORT,
-  database: DB_NAME,
-  user: DB_USER,
-  password: DB_PASSWORD,
-  ssl: NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000
-});
+const useSsl = Boolean(
+  DB_SSL
+  || NODE_ENV === 'production'
+  || (DATABASE_URL && /supabase|sslmode=require/i.test(DATABASE_URL))
+  || /supabase/i.test(DB_HOST)
+);
+
+const poolConfig = DATABASE_URL
+  ? {
+      connectionString: DATABASE_URL,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    }
+  : {
+      host: DB_HOST,
+      port: DB_PORT,
+      database: DB_NAME,
+      user: DB_USER,
+      password: DB_PASSWORD,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    };
+
+const pool = new Pool(poolConfig);
 
 let dbStatus = 'disconnected';
 let dbError = null;
@@ -994,6 +1013,30 @@ async function updateCustomer(custno, { custname, address, payterm }) {
   return { ...customer };
 }
 
+async function setCustomerStatus(custno, status) {
+  const normalizedCode = normalizeCustNo(custno);
+  const nextStatus = String(status || '').trim().toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE customer
+       SET status = $1, stamp = NOW()
+       WHERE UPPER(custno) = $2
+       RETURNING custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp`,
+      [nextStatus, normalizedCode]
+    );
+    return result.rows[0] ? customerRowToRecord(result.rows[0]) : null;
+  }
+
+  const customer = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  if (!customer) {
+    return null;
+  }
+  customer.status = nextStatus;
+  customer.stamp = new Date().toISOString();
+  return { ...customer };
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -1023,5 +1066,6 @@ module.exports = {
   getCustomerByNo,
   createCustomer,
   updateCustomer,
+  setCustomerStatus,
   VALID_PAYTERMS
 };
