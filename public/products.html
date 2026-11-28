@@ -202,12 +202,13 @@
                 <th>Product Code</th>
                 <th>Description</th>
                 <th>Unit</th>
+                <th>Current Price</th>
                 <th>Status</th>
                 <th id="actions-header" hidden>Actions</th>
               </tr>
             </thead>
             <tbody id="products-tbody">
-              <tr><td colspan="5" class="state-box">Loading products...</td></tr>
+              <tr><td colspan="6" class="state-box">Loading products...</td></tr>
             </tbody>
           </table>
         </div>
@@ -378,7 +379,7 @@
           const showActions = canEdit || canDelete || canViewPrices;
           newProductBtn.hidden = !canCreate;
           actionsHeader.hidden = !showActions;
-          const colSpan = showActions ? 5 : 4;
+          const colSpan = showActions ? 6 : 5;
 
           document.getElementById('stat-total').textContent = currentProducts.length;
           document.getElementById('stat-ea').textContent = currentProducts.filter((p) => p.unit === 'ea').length;
@@ -392,6 +393,9 @@
             const unitCls = p.unit === 'ea' ? 'pill-ea' : p.unit === 'pc' ? 'pill-pc' : 'pill-other';
             const isInactive = String(p.status).toLowerCase() === 'inactive';
             const statusCls = isInactive ? 'pill-inactive' : 'pill-active';
+            const priceText = p.currentPrice !== null && p.currentPrice !== undefined
+              ? `<strong>${Number(p.currentPrice).toFixed(2)}</strong><div class="field-hint">eff. ${escapeHtml(p.priceEffDate || '')}</div>`
+              : '<span class="field-hint">No price</span>';
             const buttons = [];
             if (canViewPrices) {
               buttons.push(`<button class="btn-secondary view-prices-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Prices</button>`);
@@ -413,6 +417,7 @@
               <td class="code-cell">${escapeHtml(p.prodcode)}</td>
               <td>${escapeHtml(p.description)}</td>
               <td><span class="pill ${unitCls}">${escapeHtml(p.unit)}</span></td>
+              <td>${priceText}</td>
               <td><span class="pill ${statusCls}">${escapeHtml(p.status)}</span></td>
               ${actionCell}
             </tr>`;
@@ -623,6 +628,7 @@
             if (editingEffdate === effdate) resetPriceForm();
             showPriceBanner(result.message || 'Price entry deleted successfully.', 'success');
             await loadPriceHistory();
+            await loadProducts();
           } catch (err) {
             showPriceBanner('Network error while deleting price entry.', 'error');
           }
@@ -656,6 +662,7 @@
           resetPriceForm();
           showPriceBanner(result.message || 'Price entry saved successfully.', 'success');
           await loadPriceHistory();
+          await loadProducts();
         } catch (err) {
           showPriceBanner('Network error while saving price entry.', 'error');
         } finally {

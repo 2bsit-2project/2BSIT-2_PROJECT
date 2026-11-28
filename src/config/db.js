@@ -1098,11 +1098,61 @@ function productRowToRecord(row) {
     description: row.description || '',
     unit: row.unit || '',
     status: row.status || 'Active',
-    stamp: row.stamp || null
+    stamp: row.stamp || null,
+    currentPrice: row.current_price !== undefined && row.current_price !== null
+      ? Number(row.current_price)
+      : null,
+    priceEffDate: row.price_effdate ? formatDateOnly(row.price_effdate) : null
   };
 }
 
-async function listProducts({ search = '', unit = '', status = 'Active' } = {}) {
+function resolveCurrentPriceInMemory(prodcode, asOfDate) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const cutoff = formatDateOnly(asOfDate || new Date().toISOString().slice(0, 10));
+  const matches = inMemoryPriceHistory
+    .filter((entry) =>
+      normalizeProdCode(entry.prodcode) === normalizedCode
+      && formatDateOnly(entry.effdate) <= cutoff
+    )
+    .sort((a, b) => formatDateOnly(b.effdate).localeCompare(formatDateOnly(a.effdate)));
+  if (!matches.length) {
+    return { currentPrice: null, priceEffDate: null };
+  }
+  return {
+    currentPrice: Number(matches[0].unitprice),
+    priceEffDate: formatDateOnly(matches[0].effdate)
+  };
+}
+
+async function getCurrentPrice(prodcode, asOfDate = new Date().toISOString().slice(0, 10)) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const cutoff = formatDateOnly(asOfDate);
+  if (!normalizedCode) {
+    return { currentPrice: null, priceEffDate: null };
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `SELECT unitprice AS current_price, TO_CHAR(effdate, 'YYYY-MM-DD') AS price_effdate
+       FROM pricehist
+       WHERE UPPER(prodcode) = $1 AND effdate <= $2::date
+       ORDER BY effdate DESC
+       LIMIT 1`,
+      [normalizedCode, cutoff]
+    );
+    if (!result.rows[0]) {
+      return { currentPrice: null, priceEffDate: null };
+    }
+    return {
+      currentPrice: Number(result.rows[0].current_price),
+      priceEffDate: result.rows[0].price_effdate
+    };
+  }
+
+  return resolveCurrentPriceInMemory(normalizedCode, cutoff);
+}
+
+async function listProducts({ search = '', unit = '', status = 'Active', asOf = '' } = {}) {
   const normalizedSearch = String(search || '').trim();
   const normalizedUnit = String(unit || '').trim().toLowerCase();
   const normalizedStatusRaw = String(status || 'Active').trim().toLowerCase();
@@ -1111,29 +1161,38 @@ async function listProducts({ search = '', unit = '', status = 'Active' } = {}) 
     : normalizedStatusRaw === 'inactive'
       ? 'Inactive'
       : 'Active';
+  const cutoffDate = formatDateOnly(asOf || new Date().toISOString().slice(0, 10));
 
   if (dbStatus === 'connected') {
     const conditions = [];
-    const params = [];
+    const params = [cutoffDate];
     if (normalizedStatus !== 'All') {
       params.push(normalizedStatus);
-      conditions.push(`LOWER(COALESCE(status, 'Active')) = LOWER($${params.length})`);
+      conditions.push(`LOWER(COALESCE(p.status, 'Active')) = LOWER($${params.length})`);
     }
     if (normalizedUnit && normalizedUnit !== 'all') {
       params.push(normalizedUnit);
-      conditions.push(`LOWER(COALESCE(unit, '')) = $${params.length}`);
+      conditions.push(`LOWER(COALESCE(p.unit, '')) = $${params.length}`);
     }
     if (normalizedSearch) {
       params.push(`%${normalizedSearch}%`);
       const p = `$${params.length}`;
-      conditions.push(`(prodcode ILIKE ${p} OR description ILIKE ${p})`);
+      conditions.push(`(p.prodcode ILIKE ${p} OR p.description ILIKE ${p})`);
     }
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const result = await pool.query(
-      `SELECT prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp
-       FROM product
+      `SELECT p.prodcode, p.description, p.unit, COALESCE(p.status, 'Active') AS status, p.stamp,
+              cp.unitprice AS current_price, TO_CHAR(cp.effdate, 'YYYY-MM-DD') AS price_effdate
+       FROM product p
+       LEFT JOIN LATERAL (
+         SELECT ph.unitprice, ph.effdate
+         FROM pricehist ph
+         WHERE UPPER(ph.prodcode) = UPPER(p.prodcode) AND ph.effdate <= $1::date
+         ORDER BY ph.effdate DESC
+         LIMIT 1
+       ) cp ON TRUE
        ${whereClause}
-       ORDER BY prodcode ASC`,
+       ORDER BY p.prodcode ASC`,
       params
     );
     return result.rows.map(productRowToRecord);
@@ -1158,7 +1217,10 @@ async function listProducts({ search = '', unit = '', status = 'Active' } = {}) 
       return true;
     })
     .sort((a, b) => a.prodcode.localeCompare(b.prodcode))
-    .map((product) => ({ ...product }));
+    .map((product) => ({
+      ...product,
+      ...resolveCurrentPriceInMemory(product.prodcode, cutoffDate)
+    }));
 }
 
 function normalizeProdCode(value) {
@@ -1179,25 +1241,34 @@ function nextProductCode(existingCodes) {
   return `PD${String(maxNumber + 1).padStart(4, '0')}`;
 }
 
-async function getProductByCode(prodcode) {
+async function getProductByCode(prodcode, asOf = '') {
   const normalizedCode = normalizeProdCode(prodcode);
   if (!normalizedCode) {
     return null;
   }
+  const cutoffDate = formatDateOnly(asOf || new Date().toISOString().slice(0, 10));
 
   if (dbStatus === 'connected') {
     const result = await pool.query(
-      `SELECT prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp
-       FROM product
-       WHERE UPPER(prodcode) = $1
+      `SELECT p.prodcode, p.description, p.unit, COALESCE(p.status, 'Active') AS status, p.stamp,
+              cp.unitprice AS current_price, TO_CHAR(cp.effdate, 'YYYY-MM-DD') AS price_effdate
+       FROM product p
+       LEFT JOIN LATERAL (
+         SELECT ph.unitprice, ph.effdate
+         FROM pricehist ph
+         WHERE UPPER(ph.prodcode) = UPPER(p.prodcode) AND ph.effdate <= $2::date
+         ORDER BY ph.effdate DESC
+         LIMIT 1
+       ) cp ON TRUE
+       WHERE UPPER(p.prodcode) = $1
        LIMIT 1`,
-      [normalizedCode]
+      [normalizedCode, cutoffDate]
     );
     return result.rows[0] ? productRowToRecord(result.rows[0]) : null;
   }
 
   const found = inMemoryProducts.find((item) => normalizeProdCode(item.prodcode) === normalizedCode);
-  return found ? { ...found } : null;
+  return found ? { ...found, ...resolveCurrentPriceInMemory(found.prodcode, cutoffDate) } : null;
 }
 
 async function createProduct({ prodcode = '', description, unit }) {
@@ -1498,5 +1569,6 @@ module.exports = {
   listPriceHistory,
   addPriceHistory,
   updatePriceHistory,
-  deletePriceHistory
+  deletePriceHistory,
+  getCurrentPrice
 };

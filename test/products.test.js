@@ -160,6 +160,22 @@ test('product list supports search, unit filter, and permission checks', async (
     assert.equal(pc0001Prices.prices[0].effdate, '2010-07-12');
     assert.equal(pc0001Prices.prices[0].unitprice, 454.54);
 
+    const pc0001Current = await (await fetch(`${baseUrl}/api/products/PC0001`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(pc0001Current.product.currentPrice, 454.54);
+    assert.equal(pc0001Current.product.priceEffDate, '2010-07-12');
+
+    const pc0001AsOfJune = await (await fetch(`${baseUrl}/api/products/PC0001?asOf=2010-06-01`, {
+      headers: { Cookie: superCookie }
+    })).json();
+    assert.equal(pc0001AsOfJune.product.currentPrice, 499.99);
+    assert.equal(pc0001AsOfJune.product.priceEffDate, '2010-05-15');
+
+    assert.equal((await fetch(`${baseUrl}/api/products?asOf=not-a-date`, {
+      headers: { Cookie: superCookie }
+    })).status, 400);
+
     const addPrice = await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
       effdate: '2026-01-15',
       unitprice: 525.5
@@ -271,6 +287,49 @@ test('product list supports search, unit filter, and permission checks', async (
       effdate: '2026-03-01',
       unitprice: 100
     }, adminCookie)).status, 403);
+
+    const granularRights = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
+      permissions: ['customers.view', 'customers.create', 'products.view', 'products.edit', 'prices.view', 'prices.create']
+    }, superCookie);
+    assert.equal(granularRights.status, 200);
+    assert.equal((await requestJson(`${baseUrl}/api/customers`, 'POST', {
+      custname: 'Granular Right Customer',
+      address: '100 Rights Ave',
+      payterm: '30D'
+    }, adminCookie)).status, 201);
+    assert.equal((await requestJson(`${baseUrl}/api/customers/C0001`, 'PUT', {
+      custname: 'Denied Edit',
+      address: '100 Rights Ave',
+      payterm: '30D'
+    }, adminCookie)).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/customers/C0001`, {
+      method: 'DELETE',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
+    assert.equal((await requestJson(`${baseUrl}/api/products`, 'POST', {
+      description: 'Denied Create',
+      unit: 'ea'
+    }, adminCookie)).status, 403);
+    assert.equal((await requestJson(`${baseUrl}/api/products/${adminProdCode}`, 'PUT', {
+      description: 'Allowed Edit Only',
+      unit: 'ea'
+    }, adminCookie)).status, 200);
+    assert.equal((await fetch(`${baseUrl}/api/products/${adminProdCode}`, {
+      method: 'DELETE',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
+    assert.equal((await requestJson(`${baseUrl}/api/products/PC0001/prices`, 'POST', {
+      effdate: '2026-04-01',
+      unitprice: 510
+    }, adminCookie)).status, 201);
+    assert.equal((await requestJson(`${baseUrl}/api/products/PC0001/prices/2026-04-01`, 'PUT', {
+      effdate: '2026-04-01',
+      unitprice: 515
+    }, adminCookie)).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/products/PC0001/prices/2026-04-01`, {
+      method: 'DELETE',
+      headers: { Cookie: adminCookie }
+    })).status, 403);
 
     const revoke = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
       permissions: ['users.view']

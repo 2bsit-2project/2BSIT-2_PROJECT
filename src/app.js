@@ -394,6 +394,7 @@ app.get('/api/products', requireDelegatedPermission('products.view'), async (req
     const rawUnit = String(req.query.unit ?? '').trim().toLowerCase();
     const unit = rawUnit === 'all' ? '' : rawUnit;
     const rawStatus = String(req.query.status ?? 'Active').trim().toLowerCase();
+    const asOf = String(req.query.asOf ?? '').trim();
 
     if (unit && !VALID_UNITS.includes(unit)) {
       return res.status(400).json({
@@ -407,13 +408,19 @@ app.get('/api/products', requireDelegatedPermission('products.view'), async (req
       });
     }
 
+    if (asOf && !isValidIsoDate(asOf)) {
+      return res.status(400).json({
+        message: 'Invalid asOf date. Expected YYYY-MM-DD format.'
+      });
+    }
+
     const status = rawStatus === 'all' ? 'All' : rawStatus === 'inactive' ? 'Inactive' : 'Active';
-    const products = await listProducts({ search, unit, status });
+    const products = await listProducts({ search, unit, status, asOf });
 
     return res.json({
       products,
       total: products.length,
-      filters: { search, unit, status },
+      filters: { search, unit, status, asOf: asOf || new Date().toISOString().slice(0, 10) },
       units: VALID_UNITS,
       permissions: getUserPermissions(req.permissionActor)
     });
@@ -446,7 +453,11 @@ function validateProductInput(body, { allowProdCode = false } = {}) {
 
 app.get('/api/products/:prodcode', requireDelegatedPermission('products.view'), async (req, res) => {
   try {
-    const product = await getProductByCode(req.params.prodcode);
+    const asOf = String(req.query.asOf ?? '').trim();
+    if (asOf && !isValidIsoDate(asOf)) {
+      return res.status(400).json({ message: 'Invalid asOf date. Expected YYYY-MM-DD format.' });
+    }
+    const product = await getProductByCode(req.params.prodcode, asOf);
     if (!product) {
       return res.status(404).json({ message: 'Product not found.' });
     }
