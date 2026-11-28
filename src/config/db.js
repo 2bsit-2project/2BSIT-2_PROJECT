@@ -1,70 +1,66 @@
 const { Pool } = require('pg');
 const {
+  DATABASE_URL,
+  DB_SSL,
   DB_HOST,
   DB_PORT,
   DB_NAME,
   DB_USER,
   DB_PASSWORD,
-
   NODE_ENV,
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
   SUPERADMIN_EMAIL,
   SUPERADMIN_PASSWORD
-
 } = require('./env');
 const { hashPassword } = require('./security');
 const {
   DEFAULT_ADMIN_PERMISSIONS,
   normalizePermissions
 } = require('./permissions');
+const {
+  VALID_PAYTERMS,
+  DEFAULT_CUSTOMERS
+} = require('./customers-seed');
 
+const useSsl = Boolean(
+  DB_SSL
+  || NODE_ENV === 'production'
+  || (DATABASE_URL && /supabase|sslmode=require/i.test(DATABASE_URL))
+  || /supabase/i.test(DB_HOST)
+);
 
+const poolConfig = DATABASE_URL
+  ? {
+      connectionString: DATABASE_URL,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    }
+  : {
+      host: DB_HOST,
+      port: DB_PORT,
+      database: DB_NAME,
+      user: DB_USER,
+      password: DB_PASSWORD,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    };
 
-
-  NODE_ENV,
-  ADMIN_EMAIL,
-  ADMIN_PASSWORD
-
-  NODE_ENV
-
-
-} = require('./env');
-const { hashPassword } = require('./security');
-
-
-
-const pool = new Pool({
-  host: DB_HOST,
-  port: DB_PORT,
-  database: DB_NAME,
-  user: DB_USER,
-  password: DB_PASSWORD,
-  ssl: NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000
-});
+const pool = new Pool(poolConfig);
 
 let dbStatus = 'disconnected';
 let dbError = null;
 let inMemoryUsers = [];
 const inMemorySessions = new Map();
-
 const inMemoryPasswordResets = new Map();
-
-
-const inMemoryPasswordResets = new Map();
-
-
-const inMemoryPasswordResets = new Map();
-
-
-const inMemoryPasswordResets = new Map();
-
-
-
-
+const inMemoryCustomers = DEFAULT_CUSTOMERS.map((customer) => ({
+  ...customer,
+  stamp: new Date().toISOString()
+}));
 let nextUserId = 1;
 
 async function initializeDatabase() {
@@ -77,7 +73,6 @@ async function initializeDatabase() {
         username VARCHAR(255),
         password VARCHAR(255) NOT NULL,
         status VARCHAR(30) NOT NULL DEFAULT 'pending',
-
         role VARCHAR(30) NOT NULL DEFAULT 'user',
         is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -85,21 +80,7 @@ async function initializeDatabase() {
     `);
     await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'user'");
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE');
-
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB');
-
-
-    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB');
-
-
-
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-
-
-
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
         token_hash CHAR(64) PRIMARY KEY,
@@ -111,7 +92,6 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx
       ON user_sessions (expires_at);
     `);
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         token_hash CHAR(64) PRIMARY KEY,
@@ -123,7 +103,29 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_idx
       ON password_reset_tokens (expires_at);
     `);
-
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS customer (
+        custno VARCHAR(5) NOT NULL PRIMARY KEY,
+        custname VARCHAR(100),
+        address VARCHAR(255),
+        payterm VARCHAR(3) CHECK (payterm IN ('COD', '30D', '45D')),
+        status VARCHAR(20) NOT NULL DEFAULT 'Active',
+        stamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+    await pool.query("ALTER TABLE customer ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'Active'");
+    await pool.query('ALTER TABLE customer ADD COLUMN IF NOT EXISTS stamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
+    const customerCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM customer');
+    if (customerCountResult.rows[0]?.count === 0) {
+      for (const customer of DEFAULT_CUSTOMERS) {
+        await pool.query(
+          `INSERT INTO customer (custno, custname, address, payterm, status)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (custno) DO NOTHING`,
+          [customer.custno, customer.custname, customer.address, customer.payterm, customer.status]
+        );
+      }
+    }
 
     dbStatus = 'connected';
     dbError = null;
@@ -137,7 +139,6 @@ async function initializeDatabase() {
 }
 
 async function connectDatabase() {
-
   if (
     ADMIN_EMAIL && SUPERADMIN_EMAIL
     && ADMIN_EMAIL.trim().toLowerCase() === SUPERADMIN_EMAIL.trim().toLowerCase()
@@ -145,49 +146,17 @@ async function connectDatabase() {
     throw new Error('ADMIN_EMAIL and SUPERADMIN_EMAIL must be different accounts.');
   }
 
-
   try {
     await pool.query('SELECT 1');
     const initialized = await initializeDatabase();
     if (!initialized) {
-
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
-
-
-      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
-      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
-
-
-      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
-      await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
-
-
-      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
-
-
-
       return false;
     }
 
     await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
-
     await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
-
-
-    await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
-
-
-    await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
-
-
-      return false;
-    }
-
-
-
-
-
     console.log('Database connected successfully.');
     return true;
   } catch (error) {
@@ -195,27 +164,12 @@ async function connectDatabase() {
     dbError = error.message;
     console.warn('Database connection failed. Please ensure PostgreSQL is running and environment values are correct.');
     console.warn(error.message);
-
     try {
       await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
       await ensureSuperAdminUser(SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD);
     } catch (adminError) {
       console.error('Unable to initialize configured privileged accounts:', adminError.message);
     }
-
-
-
-
-    try {
-      await ensureAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD);
-    } catch (adminError) {
-      console.error('Unable to initialize the configured admin account:', adminError.message);
-    }
-
-
-
-
-
     return false;
   }
 }
@@ -245,27 +199,9 @@ function userRowToRecord(row) {
     username: row.username || row.email,
     password: row.password,
     status: row.status || 'pending',
-
     role: row.role || 'user',
     isBlocked: Boolean(row.is_blocked),
     permissions: row.permissions,
-
-
-    role: row.role || 'user',
-    isBlocked: Boolean(row.is_blocked),
-    permissions: row.permissions,
-
-
-    role: row.role || 'user',
-    isBlocked: Boolean(row.is_blocked),
-
-
-    role: row.role || 'user',
-    isBlocked: Boolean(row.is_blocked),
-
-
-
-
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
   };
 }
@@ -275,23 +211,7 @@ async function listUsers(statusFilter) {
     const records = statusFilter
       ? inMemoryUsers.filter((user) => user.status === statusFilter)
       : [...inMemoryUsers];
-
     return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-
-    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-
-    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-
-    return records.map((user) => ({ ...user })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-    return records.map((user) => ({ ...user }));
-
-
-
-
   }
 
   try {
@@ -316,7 +236,6 @@ async function listUsers(statusFilter) {
   }
 }
 
-
 async function listManagedUsers(statusFilter) {
   if (dbStatus !== 'connected') {
     return inMemoryUsers
@@ -337,7 +256,6 @@ async function listManagedUsers(statusFilter) {
   const result = await pool.query(query, params);
   return result.rows.map(userRowToRecord);
 }
-
 
 async function getUserById(userId) {
   if (dbStatus !== 'connected') {
@@ -395,7 +313,6 @@ async function createUser(rawUser) {
 
   if (dbStatus === 'connected') {
     try {
-
       const duplicate = await pool.query('SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)', [email]);
       if (duplicate.rowCount) {
         const duplicateError = new Error('A user with this email already exists.');
@@ -404,26 +321,8 @@ async function createUser(rawUser) {
       }
 
       const result = await pool.query(
-
         `INSERT INTO users (name, email, username, password, status, role, is_blocked, permissions)
          VALUES ($1, $2, $3, $4, $5, 'user', FALSE, '[]'::jsonb)
-
-
-        `INSERT INTO users (name, email, username, password, status, role, is_blocked, permissions)
-         VALUES ($1, $2, $3, $4, $5, 'user', FALSE, '[]'::jsonb)
-
-        `INSERT INTO users (name, email, username, password, status, role, is_blocked)
-         VALUES ($1, $2, $3, $4, $5, 'user', FALSE)
-
-
-
-      const result = await pool.query(
-        `INSERT INTO users (name, email, username, password, status)
-         VALUES ($1, $2, $3, $4, $5)
-
-
-
-
          RETURNING *;`,
         [name, email, username, passwordHash, status]
       );
@@ -453,35 +352,15 @@ async function createUser(rawUser) {
     username,
     password: passwordHash,
     status,
-
     role: 'user',
     isBlocked: false,
     permissions: [],
-
-
-    role: 'user',
-    isBlocked: false,
-    permissions: [],
-
-
-    role: 'user',
-    isBlocked: false,
-
-
-    role: 'user',
-    isBlocked: false,
-
-
-
-
-
     createdAt: new Date().toISOString()
   };
 
   inMemoryUsers.unshift(newUser);
   return { ...newUser };
 }
-
 
 async function ensurePrivilegedUser(email, password, role) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -490,29 +369,14 @@ async function ensurePrivilegedUser(email, password, role) {
     return null;
   }
   if (!normalizedEmail || adminPassword.length < 8) {
-
     const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
     throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
-
-
-    const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
-    throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
-
-
-    const roleLabel = role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN';
-    throw new Error(`Set both ${roleLabel}_EMAIL and a ${roleLabel}_PASSWORD of at least 8 characters.`);
-
-    throw new Error('Set both ADMIN_EMAIL and an ADMIN_PASSWORD of at least 8 characters.');
-
-
-
   }
 
   if (dbStatus === 'connected') {
     const existing = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
     if (existing.rows[0]) {
       const result = await pool.query(
-
         `UPDATE users
          SET role = $1, status = 'active', is_blocked = FALSE,
              permissions = CASE
@@ -523,25 +387,12 @@ async function ensurePrivilegedUser(email, password, role) {
              END
          WHERE id = $2 RETURNING *`,
         [role, existing.rows[0].id, JSON.stringify(DEFAULT_ADMIN_PERMISSIONS)]
-
-
-
-        "UPDATE users SET role = $1, status = 'active', is_blocked = FALSE WHERE id = $2 RETURNING *",
-
-        'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
-
-        [role, existing.rows[0].id]
-
-
       );
       return userRowToRecord(result.rows[0]);
     }
 
     const passwordHash = await hashPassword(adminPassword);
     const result = await pool.query(
-
-
-
       `INSERT INTO users (name, email, username, password, status, role, is_blocked, permissions)
        VALUES ($1, $2, $2, $3, 'active', $4, FALSE, $5::jsonb)
        RETURNING *`,
@@ -552,23 +403,12 @@ async function ensurePrivilegedUser(email, password, role) {
         role,
         JSON.stringify(role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : [])
       ]
-
-
-      `INSERT INTO users (name, email, username, password, status, role, is_blocked)
-       VALUES ($1, $2, $2, $3, 'active', $4, FALSE)
-       RETURNING *`,
-      [role === 'admin' ? 'Administrator' : 'Superadmin', normalizedEmail, passwordHash, role]
-
-
     );
     return userRowToRecord(result.rows[0]);
   }
 
   const existing = inMemoryUsers.find((user) => user.email.toLowerCase() === normalizedEmail);
   if (existing) {
-
-
-
     const wasAdmin = existing.role === 'admin';
     existing.role = role;
     existing.status = 'active';
@@ -576,15 +416,6 @@ async function ensurePrivilegedUser(email, password, role) {
     if (role === 'admin' && (!wasAdmin || !Array.isArray(existing.permissions))) {
       existing.permissions = [...DEFAULT_ADMIN_PERMISSIONS];
     }
-
-
-    existing.role = role;
-
-    existing.status = 'active';
-    existing.isBlocked = false;
-
-
-
     return { ...existing };
   }
 
@@ -598,13 +429,7 @@ async function ensurePrivilegedUser(email, password, role) {
     status: 'active',
     role,
     isBlocked: false,
-
     permissions: role === 'admin' ? [...DEFAULT_ADMIN_PERMISSIONS] : [],
-
-
-    permissions: role === 'admin' ? [...DEFAULT_ADMIN_PERMISSIONS] : [],
-
-
     createdAt: new Date().toISOString()
   };
   inMemoryUsers.unshift(admin);
@@ -704,8 +529,6 @@ async function setUserBlocked(userId, isBlocked) {
   return { ...user };
 }
 
-
-
 async function updateUserPassword(userId, password) {
   if (dbStatus === 'connected') {
     try {
@@ -720,7 +543,6 @@ async function updateUserPassword(userId, password) {
     user.password = password;
   }
 }
-
 
 async function createPasswordResetToken(tokenHash, userId, expiresAt) {
   if (dbStatus === 'connected') {
@@ -819,7 +641,6 @@ async function resetPasswordWithToken(tokenHash, passwordHash) {
   return true;
 }
 
-
 async function createSession(tokenHash, userId, expiresAt) {
   if (dbStatus === 'connected') {
     try {
@@ -916,7 +737,6 @@ async function updateUserStatus(userId, newStatus) {
   return { ...inMemoryUsers[userIndex] };
 }
 
-
 async function approvePendingUser(userId) {
   if (dbStatus === 'connected') {
     const result = await pool.query(
@@ -941,21 +761,12 @@ async function approvePendingUser(userId) {
   return { ...user };
 }
 
-
 async function setUserRole(userId, role, adminPermissions = DEFAULT_ADMIN_PERMISSIONS) {
-
-
-async function setUserRole(userId, role, adminPermissions = DEFAULT_ADMIN_PERMISSIONS) {
-
-async function setUserRole(userId, role) {
-
-
   if (!['user', 'admin'].includes(role)) {
     const error = new Error('Role must be user or admin.');
     error.code = 'VALIDATION_ERROR';
     throw error;
   }
-
   const permissions = role === 'admin' ? normalizePermissions(adminPermissions) : [];
 
   if (dbStatus === 'connected') {
@@ -965,19 +776,6 @@ async function setUserRole(userId, role) {
          AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
        RETURNING *`,
       [role, userId, JSON.stringify(permissions)]
-
-
-
-
-  if (dbStatus === 'connected') {
-    const result = await pool.query(
-      `UPDATE users SET role = $1
-       WHERE id = $2 AND status = 'active'
-         AND LOWER(COALESCE(role, 'user')) <> 'superadmin'
-       RETURNING *`,
-      [role, userId]
-
-
     );
     return result.rows[0] ? userRowToRecord(result.rows[0]) : null;
   }
@@ -991,7 +789,6 @@ async function setUserRole(userId, role) {
     return null;
   }
   user.role = role;
-
   user.permissions = permissions;
   return { ...user };
 }
@@ -1028,13 +825,217 @@ async function setUserPermissions(userId, permissions) {
   return { ...user };
 }
 
-
-
-  return { ...user };
+function customerRowToRecord(row) {
+  return {
+    custno: row.custno,
+    custname: row.custname || '',
+    address: row.address || '',
+    payterm: row.payterm || '',
+    status: row.status || 'Active',
+    stamp: row.stamp || null
+  };
 }
 
+async function listCustomers({ search = '', payterm = '', status = 'Active' } = {}) {
+  const normalizedSearch = String(search || '').trim();
+  const normalizedPayterm = String(payterm || '').trim().toUpperCase();
+  const normalizedStatusRaw = String(status || 'Active').trim().toLowerCase();
+  const normalizedStatus = normalizedStatusRaw === 'all'
+    ? 'All'
+    : normalizedStatusRaw === 'inactive'
+      ? 'Inactive'
+      : 'Active';
 
+  if (dbStatus === 'connected') {
+    const conditions = [];
+    const params = [];
+    if (normalizedStatus !== 'All') {
+      params.push(normalizedStatus);
+      conditions.push(`LOWER(COALESCE(status, 'Active')) = LOWER($${params.length})`);
+    }
+    if (normalizedPayterm && normalizedPayterm !== 'ALL') {
+      params.push(normalizedPayterm);
+      conditions.push(`UPPER(COALESCE(payterm, '')) = $${params.length}`);
+    }
+    if (normalizedSearch) {
+      params.push(`%${normalizedSearch}%`);
+      const p = `$${params.length}`;
+      conditions.push(`(custno ILIKE ${p} OR custname ILIKE ${p} OR address ILIKE ${p})`);
+    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const result = await pool.query(
+      `SELECT custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp
+       FROM customer
+       ${whereClause}
+       ORDER BY custno ASC`,
+      params
+    );
+    return result.rows.map(customerRowToRecord);
+  }
 
+  const needle = normalizedSearch.toLowerCase();
+  return inMemoryCustomers
+    .filter((customer) => {
+      const custStatus = String(customer.status || 'Active');
+      if (normalizedStatus !== 'All' && custStatus.toLowerCase() !== normalizedStatus.toLowerCase()) {
+        return false;
+      }
+      if (normalizedPayterm && normalizedPayterm !== 'ALL' && String(customer.payterm || '').toUpperCase() !== normalizedPayterm) {
+        return false;
+      }
+      if (needle) {
+        const haystack = `${customer.custno} ${customer.custname} ${customer.address}`.toLowerCase();
+        if (!haystack.includes(needle)) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => a.custno.localeCompare(b.custno))
+    .map((customer) => ({ ...customer }));
+}
+
+function normalizeCustNo(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function nextCustomerCode(existingCodes) {
+  let maxNumber = 0;
+  for (const code of existingCodes) {
+    const match = /^C(\d+)$/i.exec(String(code || '').trim());
+    if (match) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (parsed > maxNumber) {
+        maxNumber = parsed;
+      }
+    }
+  }
+  return `C${String(maxNumber + 1).padStart(4, '0')}`;
+}
+
+async function getCustomerByNo(custno) {
+  const normalizedCode = normalizeCustNo(custno);
+  if (!normalizedCode) {
+    return null;
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `SELECT custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp
+       FROM customer
+       WHERE UPPER(custno) = $1
+       LIMIT 1`,
+      [normalizedCode]
+    );
+    return result.rows[0] ? customerRowToRecord(result.rows[0]) : null;
+  }
+
+  const found = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  return found ? { ...found } : null;
+}
+
+async function createCustomer({ custno = '', custname, address, payterm }) {
+  const normalizedName = String(custname || '').trim();
+  const normalizedAddress = String(address || '').trim();
+  const normalizedPayterm = String(payterm || '').trim().toUpperCase();
+  let normalizedCode = normalizeCustNo(custno);
+
+  if (dbStatus === 'connected') {
+    if (!normalizedCode) {
+      const existing = await pool.query('SELECT custno FROM customer');
+      normalizedCode = nextCustomerCode(existing.rows.map((row) => row.custno));
+    }
+    try {
+      const result = await pool.query(
+        `INSERT INTO customer (custno, custname, address, payterm, status, stamp)
+         VALUES ($1, $2, $3, $4, 'Active', NOW())
+         RETURNING custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp`,
+        [normalizedCode, normalizedName, normalizedAddress, normalizedPayterm]
+      );
+      return customerRowToRecord(result.rows[0]);
+    } catch (error) {
+      if (error.code === '23505') {
+        const duplicateError = new Error(`Customer number ${normalizedCode} already exists.`);
+        duplicateError.code = 'DUPLICATE_CUSTOMER';
+        throw duplicateError;
+      }
+      throw error;
+    }
+  }
+
+  if (!normalizedCode) {
+    normalizedCode = nextCustomerCode(inMemoryCustomers.map((item) => item.custno));
+  }
+  const duplicate = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  if (duplicate) {
+    const duplicateError = new Error(`Customer number ${normalizedCode} already exists.`);
+    duplicateError.code = 'DUPLICATE_CUSTOMER';
+    throw duplicateError;
+  }
+
+  const record = {
+    custno: normalizedCode,
+    custname: normalizedName,
+    address: normalizedAddress,
+    payterm: normalizedPayterm,
+    status: 'Active',
+    stamp: new Date().toISOString()
+  };
+  inMemoryCustomers.push(record);
+  return { ...record };
+}
+
+async function updateCustomer(custno, { custname, address, payterm }) {
+  const normalizedCode = normalizeCustNo(custno);
+  const normalizedName = String(custname || '').trim();
+  const normalizedAddress = String(address || '').trim();
+  const normalizedPayterm = String(payterm || '').trim().toUpperCase();
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE customer
+       SET custname = $1, address = $2, payterm = $3, stamp = NOW()
+       WHERE UPPER(custno) = $4
+       RETURNING custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp`,
+      [normalizedName, normalizedAddress, normalizedPayterm, normalizedCode]
+    );
+    return result.rows[0] ? customerRowToRecord(result.rows[0]) : null;
+  }
+
+  const customer = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  if (!customer) {
+    return null;
+  }
+  customer.custname = normalizedName;
+  customer.address = normalizedAddress;
+  customer.payterm = normalizedPayterm;
+  customer.stamp = new Date().toISOString();
+  return { ...customer };
+}
+
+async function setCustomerStatus(custno, status) {
+  const normalizedCode = normalizeCustNo(custno);
+  const nextStatus = String(status || '').trim().toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE customer
+       SET status = $1, stamp = NOW()
+       WHERE UPPER(custno) = $2
+       RETURNING custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp`,
+      [nextStatus, normalizedCode]
+    );
+    return result.rows[0] ? customerRowToRecord(result.rows[0]) : null;
+  }
+
+  const customer = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  if (!customer) {
+    return null;
+  }
+  customer.status = nextStatus;
+  customer.stamp = new Date().toISOString();
+  return { ...customer };
+}
 
 module.exports = {
   pool,
@@ -1042,7 +1043,6 @@ module.exports = {
   initializeDatabase,
   getDbStatus,
   listUsers,
-
   listManagedUsers,
   getUserById,
   getUserByEmail,
@@ -1055,40 +1055,17 @@ module.exports = {
   createPasswordResetToken,
   deletePasswordResetTokens,
   resetPasswordWithToken,
-
   createSession,
   getSession,
   deleteSession,
   updateUserStatus,
   approvePendingUser,
-
   setUserRole,
-  setUserPermissions
+  setUserPermissions,
+  listCustomers,
+  getCustomerByNo,
+  createCustomer,
+  updateCustomer,
+  setCustomerStatus,
+  VALID_PAYTERMS
 };
-
-
-  setUserRole,
-  setUserPermissions
-};
-
-  setUserRole
-};
-
-
-  getUserById,
-  getUserByEmail,
-  createUser,
-  updateUserPassword,
-
-  createSession,
-  getSession,
-  deleteSession,
-  updateUserStatus
-
-};
-
-};
-
-
-
-
