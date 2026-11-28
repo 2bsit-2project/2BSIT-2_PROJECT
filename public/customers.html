@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customers | Hope, Inc. ERP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #b7c3d2;
+        --sidebar: #0e1d2c;
+        --panel: #ffffff;
+        --primary: #3158e8;
+        --primary-hover: #2446c8;
+        --text: #17263f;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --danger: #b42318;
+        --success: #166534;
+      }
+      * { box-sizing: border-box; }
+      body {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      aside {
+        display: flex;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        flex-direction: column;
+        gap: 24px;
+        padding: 25px 19px 18px;
+        background: var(--sidebar);
+        color: #e8eef8;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; color: #f2f6fc; font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+      .brand-mark { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 8px; background: #16bfd0; color: white; font-size: 1.05rem; font-weight: 800; }
+      nav { display: grid; gap: 5px; }
+      nav a { display: flex; min-height: 40px; align-items: center; gap: 10px; border-radius: 8px; padding: 8px 10px; color: #aeb9c8; font-size: 0.84rem; font-weight: 500; text-decoration: none; }
+      nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      nav a[aria-current="page"] { background: var(--primary); color: #fff; }
+      .sidebar-bottom { display: flex; align-items: center; gap: 10px; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px; }
+      .avatar { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 50%; background: #263648; color: #eaf0f8; font-size: 0.74rem; font-weight: 700; }
+      .account { min-width: 0; flex: 1; margin: 0; color: #eff3f8; font-size: 0.75rem; line-height: 1.35; }
+      .account span { display: block; color: #8492a5; font-size: 0.68rem; }
+      .logout-button { border: 0; border-radius: 7px; padding: 7px; background: transparent; color: #96a4b7; font: inherit; font-size: 0.72rem; cursor: pointer; }
+      .logout-button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      main { width: min(100%, 1440px); min-width: 0; margin: 0 auto; padding: 28px clamp(20px, 3vw, 40px) 40px; }
+      .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+      .heading-actions { display: flex; align-items: center; gap: 10px; }
+      h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 1.7rem); letter-spacing: -0.03em; }
+      .subtitle { margin: 4px 0 0; color: #334155; font-size: 0.85rem; }
+      .role-badge { border: 1px solid rgba(255,255,255,0.8); border-radius: 999px; padding: 7px 12px; background: rgba(255,255,255,0.85); color: #475569; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .btn-primary { height: 38px; border: 0; border-radius: 8px; padding: 0 16px; background: var(--primary); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+      .btn-primary:hover { background: var(--primary-hover); }
+      .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+      .btn-secondary { height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
+      .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+      .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); box-shadow: 0 6px 16px rgba(34,49,72,0.04); }
+      .stat-label { color: var(--muted); font-size: 0.74rem; font-weight: 600; }
+      .stat-value { display: block; margin-top: 6px; font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; margin-bottom: 20px; }
+      .form-panel { display: none; padding: 20px 22px; }
+      .form-panel.open { display: block; }
+      .form-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      .form-header h2 { margin: 0; font-size: 1.05rem; }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field.full { grid-column: 1 / -1; }
+      .field label { font-size: 0.78rem; font-weight: 600; color: #334155; }
+      .field input, .field select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.86rem; }
+      .field input:read-only { background: #f1f5f9; color: #475569; }
+      .field-hint { font-size: 0.72rem; color: var(--muted); }
+      .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); background: #f8fafc; }
+      .toolbar input, .toolbar select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.85rem; }
+      .toolbar input { flex: 1 1 260px; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+      th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+      th { background: #f8fafc; color: #475569; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      tbody tr:hover { background: #f8fafc; }
+      .code-cell { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: var(--primary); white-space: nowrap; }
+      .pill { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; }
+      .pill-cod { background: #fef3c7; color: #92400e; }
+      .pill-30d { background: #dbeafe; color: #1e40af; }
+      .pill-45d { background: #ede9fe; color: #5b21b6; }
+      .pill-active { background: #dcfce7; color: #166534; }
+      .pill-inactive { background: #fee2e2; color: #991b1b; }
+      .state-box { padding: 28px 18px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+      .status-banner { display: none; margin: 14px 18px; border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; }
+      .status-banner.visible { display: block; }
+      .status-banner.error { border: 1px solid #fecaca; background: #fef2f2; color: var(--danger); }
+      .status-banner.success { border: 1px solid #bbf7d0; background: #f0fdf4; color: var(--success); }
+      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <aside aria-label="Main navigation">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">H</span><span>Hope, Inc. ERP</span></a>
+      <nav id="sidebar-nav">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/customers" aria-current="page">Customers</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="avatar" id="user-avatar">U</div>
+        <p class="account"><strong id="user-name">Loading...</strong><span id="user-email"></span></p>
+        <button class="logout-button" id="logout-btn" type="button">Log out</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="page-heading">
+        <div>
+          <h1>Customer Directory</h1>
+          <p class="subtitle">Search, filter, create, and edit Hope, Inc. customer accounts.</p>
+        </div>
+        <div class="heading-actions">
+          <button class="btn-primary" id="new-customer-btn" type="button" hidden>Add Customer</button>
+          <span class="role-badge" id="role-badge">Checking role...</span>
+        </div>
+      </div>
+
+      <section class="stat-grid" aria-label="Customer summary">
+        <div class="stat-card"><span class="stat-label">Matching Customers</span><span class="stat-value" id="stat-total">0</span></div>
+        <div class="stat-card"><span class="stat-label">COD Term</span><span class="stat-value" id="stat-cod">0</span></div>
+        <div class="stat-card"><span class="stat-label">30D Term</span><span class="stat-value" id="stat-30d">0</span></div>
+        <div class="stat-card"><span class="stat-label">45D Term</span><span class="stat-value" id="stat-45d">0</span></div>
+      </section>
+
+      <section class="panel form-panel" id="customer-form-panel" aria-label="Customer form">
+        <div class="form-header">
+          <h2 id="form-title">Add Customer</h2>
+          <button class="btn-secondary" id="close-form-btn" type="button">Cancel</button>
+        </div>
+        <form id="customer-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="field-custno">Customer No.</label>
+              <input id="field-custno" name="custno" type="text" maxlength="5" placeholder="Auto-generated (e.g. C0030)" />
+              <span class="field-hint" id="custno-hint">Leave blank to auto-assign the next customer number.</span>
+            </div>
+            <div class="field">
+              <label for="field-payterm">Payment Term</label>
+              <select id="field-payterm" name="payterm" required>
+                <option value="COD">COD</option>
+                <option value="30D">30D</option>
+                <option value="45D">45D</option>
+              </select>
+            </div>
+            <div class="field full">
+              <label for="field-custname">Customer Name</label>
+              <input id="field-custname" name="custname" type="text" maxlength="100" required placeholder="Company or contact name" />
+            </div>
+            <div class="field full">
+              <label for="field-address">Address</label>
+              <input id="field-address" name="address" type="text" maxlength="255" required placeholder="Street, city, state, postal code" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" id="cancel-form-btn" type="button">Cancel</button>
+            <button class="btn-primary" id="save-customer-btn" type="submit">Save Customer</button>
+          </div>
+        </form>
+      </section>
+      <section class="panel" aria-label="Customer list">
+        <div class="toolbar">
+          <input id="search-input" type="search" placeholder="Search by customer no., name, or address..." aria-label="Search customers" />
+          <select id="payterm-filter" aria-label="Filter by payment term">
+            <option value="">All payment terms</option>
+            <option value="COD">COD</option>
+            <option value="30D">30D</option>
+            <option value="45D">45D</option>
+          </select>
+          <select id="status-filter" aria-label="Filter by status">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="All">All statuses</option>
+          </select>
+          <button class="btn-secondary" id="clear-filters" type="button">Reset</button>
+        </div>
+
+        <div class="status-banner" id="status-banner" role="status" aria-live="polite"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer No.</th>
+                <th>Customer Name</th>
+                <th>Address</th>
+                <th>Payment Term</th>
+                <th>Status</th>
+                <th id="actions-header" hidden>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="customers-tbody">
+              <tr><td colspan="6" class="state-box">Loading customers...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const searchInput = document.getElementById('search-input');
+      const paytermFilter = document.getElementById('payterm-filter');
+      const statusFilter = document.getElementById('status-filter');
+      const clearBtn = document.getElementById('clear-filters');
+      const tbody = document.getElementById('customers-tbody');
+      const statusBanner = document.getElementById('status-banner');
+      const newCustomerBtn = document.getElementById('new-customer-btn');
+      const actionsHeader = document.getElementById('actions-header');
+      const formPanel = document.getElementById('customer-form-panel');
+      const customerForm = document.getElementById('customer-form');
+      const formTitle = document.getElementById('form-title');
+      const fieldCustno = document.getElementById('field-custno');
+      const custnoHint = document.getElementById('custno-hint');
+      const fieldCustname = document.getElementById('field-custname');
+      const fieldAddress = document.getElementById('field-address');
+      const fieldPayterm = document.getElementById('field-payterm');
+      const saveCustomerBtn = document.getElementById('save-customer-btn');
+      let searchTimer = null;
+      let currentPermissions = [];
+      let currentCustomers = [];
+      let editingCustno = null;
+
+      function escapeHtml(text) {
+        return String(text ?? '')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function showBanner(message, type) {
+        statusBanner.textContent = message;
+        statusBanner.className = `status-banner visible ${type}`;
+      }
+
+      function clearBanner() {
+        statusBanner.textContent = '';
+        statusBanner.className = 'status-banner';
+      }
+
+      function openCreateForm() {
+        editingCustno = null;
+        formTitle.textContent = 'Add Customer';
+        saveCustomerBtn.textContent = 'Create Customer';
+        customerForm.reset();
+        fieldCustno.readOnly = false;
+        custnoHint.textContent = 'Leave blank to auto-assign the next customer number.';
+        fieldPayterm.value = '30D';
+        formPanel.classList.add('open');
+        fieldCustname.focus();
+      }
+
+      function openEditForm(customer) {
+        editingCustno = customer.custno;
+        formTitle.textContent = `Edit Customer ${customer.custno}`;
+        saveCustomerBtn.textContent = 'Save Changes';
+        fieldCustno.value = customer.custno;
+        fieldCustno.readOnly = true;
+        custnoHint.textContent = 'Customer number cannot be changed when editing.';
+        fieldCustname.value = customer.custname || '';
+        fieldAddress.value = customer.address || '';
+        fieldPayterm.value = customer.payterm || '30D';
+        formPanel.classList.add('open');
+        fieldCustname.focus();
+      }
+
+      function closeForm() {
+        editingCustno = null;
+        formPanel.classList.remove('open');
+        customerForm.reset();
+      }
+      async function loadNavigation() {
+        const resp = await fetch('/api/dashboard/modules');
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (!resp.ok) return;
+        const { user, modules } = await resp.json();
+        document.getElementById('user-name').textContent = user.name || 'User';
+        document.getElementById('user-email').textContent = user.email || '';
+        document.getElementById('user-avatar').textContent = (user.name || 'U').trim().charAt(0).toUpperCase();
+        document.getElementById('role-badge').textContent = (user.role || 'user').toUpperCase();
+        const nav = document.getElementById('sidebar-nav');
+        nav.innerHTML = '<a href="/dashboard">Dashboard</a>' + modules.map((m) =>
+          `<a href="${escapeHtml(m.href)}"${m.id === 'customers' ? ' aria-current="page"' : ''}>${escapeHtml(m.label)}</a>`
+        ).join('');
+      }
+
+      async function loadCustomers() {
+        const params = new URLSearchParams();
+        if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
+        if (paytermFilter.value) params.set('payterm', paytermFilter.value);
+        if (statusFilter.value) params.set('status', statusFilter.value);
+        try {
+          const resp = await fetch(`/api/customers?${params.toString()}`);
+          if (resp.status === 401) { window.location.href = '/login'; return; }
+          const data = await resp.json();
+          if (!resp.ok) {
+            showBanner(data.message || 'Unable to load customers.', 'error');
+            tbody.innerHTML = '<tr><td colspan="6" class="state-box">Access denied or error loading customers.</td></tr>';
+            return;
+          }
+          currentPermissions = Array.isArray(data.permissions) ? data.permissions : [];
+          currentCustomers = data.customers || [];
+          const canCreate = currentPermissions.includes('customers.create');
+          const canEdit = currentPermissions.includes('customers.edit');
+          newCustomerBtn.hidden = !canCreate;
+          actionsHeader.hidden = !canEdit;
+          const colSpan = canEdit ? 6 : 5;
+
+          document.getElementById('stat-total').textContent = currentCustomers.length;
+          document.getElementById('stat-cod').textContent = currentCustomers.filter((c) => c.payterm === 'COD').length;
+          document.getElementById('stat-30d').textContent = currentCustomers.filter((c) => c.payterm === '30D').length;
+          document.getElementById('stat-45d').textContent = currentCustomers.filter((c) => c.payterm === '45D').length;
+          if (!currentCustomers.length) {
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="state-box">No customers match your current search and filter criteria.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = currentCustomers.map((c) => {
+            const termCls = c.payterm === 'COD' ? 'pill-cod' : c.payterm === '30D' ? 'pill-30d' : 'pill-45d';
+            const statusCls = String(c.status).toLowerCase() === 'inactive' ? 'pill-inactive' : 'pill-active';
+            const actionCell = canEdit
+              ? `<td><button class="btn-secondary edit-customer-btn" type="button" data-custno="${escapeHtml(c.custno)}">Edit</button></td>`
+              : '';
+            return `<tr>
+              <td class="code-cell">${escapeHtml(c.custno)}</td>
+              <td>${escapeHtml(c.custname)}</td>
+              <td>${escapeHtml(c.address)}</td>
+              <td><span class="pill ${termCls}">${escapeHtml(c.payterm)}</span></td>
+              <td><span class="pill ${statusCls}">${escapeHtml(c.status)}</span></td>
+              ${actionCell}
+            </tr>`;
+          }).join('');
+        } catch (err) {
+          showBanner('Network error while fetching customers.', 'error');
+        }
+      }
+
+      tbody.addEventListener('click', (event) => {
+        const btn = event.target.closest('.edit-customer-btn');
+        if (!btn) return;
+        const found = currentCustomers.find((c) => c.custno === btn.dataset.custno);
+        if (found) openEditForm(found);
+      });
+
+      customerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearBanner();
+        saveCustomerBtn.disabled = true;
+        const payload = {
+          custname: fieldCustname.value.trim(),
+          address: fieldAddress.value.trim(),
+          payterm: fieldPayterm.value
+        };
+        if (!editingCustno && fieldCustno.value.trim()) {
+          payload.custno = fieldCustno.value.trim().toUpperCase();
+        }
+        try {
+          const url = editingCustno
+            ? `/api/customers/${encodeURIComponent(editingCustno)}`
+            : '/api/customers';
+          const method = editingCustno ? 'PUT' : 'POST';
+          const resp = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            showBanner(result.message || 'Unable to save customer.', 'error');
+            return;
+          }
+          closeForm();
+          showBanner(result.message || 'Customer saved successfully.', 'success');
+          await loadCustomers();
+        } catch (err) {
+          showBanner('Network error while saving customer.', 'error');
+        } finally {
+          saveCustomerBtn.disabled = false;
+        }
+      });
+
+      newCustomerBtn.addEventListener('click', openCreateForm);
+      document.getElementById('close-form-btn').addEventListener('click', closeForm);
+      document.getElementById('cancel-form-btn').addEventListener('click', closeForm);
+      searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadCustomers, 180); });
+      paytermFilter.addEventListener('change', loadCustomers);
+      statusFilter.addEventListener('change', loadCustomers);
+      clearBtn.addEventListener('click', () => { searchInput.value = ''; paytermFilter.value = ''; statusFilter.value = 'Active'; clearBanner(); loadCustomers(); });
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+      });
+      loadNavigation();
+      loadCustomers();
+    </script>
+  </body>
+</html>
