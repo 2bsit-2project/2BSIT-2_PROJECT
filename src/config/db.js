@@ -22,6 +22,10 @@ const {
   VALID_PAYTERMS,
   DEFAULT_CUSTOMERS
 } = require('./customers-seed');
+const {
+  VALID_UNITS,
+  DEFAULT_PRODUCTS
+} = require('./products-seed');
 
 const useSsl = Boolean(
   DB_SSL
@@ -59,6 +63,10 @@ const inMemorySessions = new Map();
 const inMemoryPasswordResets = new Map();
 const inMemoryCustomers = DEFAULT_CUSTOMERS.map((customer) => ({
   ...customer,
+  stamp: new Date().toISOString()
+}));
+const inMemoryProducts = DEFAULT_PRODUCTS.map((product) => ({
+  ...product,
   stamp: new Date().toISOString()
 }));
 let nextUserId = 1;
@@ -123,6 +131,28 @@ async function initializeDatabase() {
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (custno) DO NOTHING`,
           [customer.custno, customer.custname, customer.address, customer.payterm, customer.status]
+        );
+      }
+    }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product (
+        prodcode VARCHAR(6) NOT NULL PRIMARY KEY,
+        description VARCHAR(100),
+        unit VARCHAR(3) CHECK (unit IN ('pc', 'ea', 'mtr', 'pkg', 'ltr')),
+        status VARCHAR(20) NOT NULL DEFAULT 'Active',
+        stamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+    await pool.query("ALTER TABLE product ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'Active'");
+    await pool.query('ALTER TABLE product ADD COLUMN IF NOT EXISTS stamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
+    const productCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM product');
+    if (productCountResult.rows[0]?.count === 0) {
+      for (const product of DEFAULT_PRODUCTS) {
+        await pool.query(
+          `INSERT INTO product (prodcode, description, unit, status)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (prodcode) DO NOTHING`,
+          [product.prodcode, product.description, product.unit, product.status]
         );
       }
     }
@@ -1037,6 +1067,75 @@ async function setCustomerStatus(custno, status) {
   return { ...customer };
 }
 
+function productRowToRecord(row) {
+  return {
+    prodcode: row.prodcode,
+    description: row.description || '',
+    unit: row.unit || '',
+    status: row.status || 'Active',
+    stamp: row.stamp || null
+  };
+}
+
+async function listProducts({ search = '', unit = '', status = 'Active' } = {}) {
+  const normalizedSearch = String(search || '').trim();
+  const normalizedUnit = String(unit || '').trim().toLowerCase();
+  const normalizedStatusRaw = String(status || 'Active').trim().toLowerCase();
+  const normalizedStatus = normalizedStatusRaw === 'all'
+    ? 'All'
+    : normalizedStatusRaw === 'inactive'
+      ? 'Inactive'
+      : 'Active';
+
+  if (dbStatus === 'connected') {
+    const conditions = [];
+    const params = [];
+    if (normalizedStatus !== 'All') {
+      params.push(normalizedStatus);
+      conditions.push(`LOWER(COALESCE(status, 'Active')) = LOWER($${params.length})`);
+    }
+    if (normalizedUnit && normalizedUnit !== 'all') {
+      params.push(normalizedUnit);
+      conditions.push(`LOWER(COALESCE(unit, '')) = $${params.length}`);
+    }
+    if (normalizedSearch) {
+      params.push(`%${normalizedSearch}%`);
+      const p = `$${params.length}`;
+      conditions.push(`(prodcode ILIKE ${p} OR description ILIKE ${p})`);
+    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const result = await pool.query(
+      `SELECT prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp
+       FROM product
+       ${whereClause}
+       ORDER BY prodcode ASC`,
+      params
+    );
+    return result.rows.map(productRowToRecord);
+  }
+
+  const needle = normalizedSearch.toLowerCase();
+  return inMemoryProducts
+    .filter((product) => {
+      const prodStatus = String(product.status || 'Active');
+      if (normalizedStatus !== 'All' && prodStatus.toLowerCase() !== normalizedStatus.toLowerCase()) {
+        return false;
+      }
+      if (normalizedUnit && normalizedUnit !== 'all' && String(product.unit || '').toLowerCase() !== normalizedUnit) {
+        return false;
+      }
+      if (needle) {
+        const haystack = `${product.prodcode} ${product.description}`.toLowerCase();
+        if (!haystack.includes(needle)) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => a.prodcode.localeCompare(b.prodcode))
+    .map((product) => ({ ...product }));
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -1067,5 +1166,7 @@ module.exports = {
   createCustomer,
   updateCustomer,
   setCustomerStatus,
-  VALID_PAYTERMS
+  VALID_PAYTERMS,
+  listProducts,
+  VALID_UNITS
 };

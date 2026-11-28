@@ -42,6 +42,16 @@ const PERMISSION_MODULES = [
       { id: 'edit', label: 'Edit customers' },
       { id: 'delete', label: 'Delete or restore customers' }
     ]
+  },
+  {
+    id: 'products',
+    label: 'Products',
+    actions: [
+      { id: 'view', label: 'View products' },
+      { id: 'create', label: 'Add products' },
+      { id: 'edit', label: 'Edit products' },
+      { id: 'delete', label: 'Delete or restore products' }
+    ]
   }
 ];
 
@@ -58,7 +68,8 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'customers.view',
   'customers.create',
   'customers.edit',
-  'customers.delete'
+  'customers.delete',
+  'products.view'
 ];
 
 const DASHBOARD_MODULES = [
@@ -97,6 +108,13 @@ const DASHBOARD_MODULES = [
     description: 'Search, filter, and review customer accounts and payment terms.',
     href: '/customers',
     requires: ['customers.view']
+  },
+  {
+    id: 'products',
+    label: 'Products',
+    description: 'Search, filter, and review product catalog items and units.',
+    href: '/products',
+    requires: ['products.view']
   }
 ];
 

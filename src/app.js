@@ -27,7 +27,9 @@ const {
   createCustomer,
   updateCustomer,
   setCustomerStatus,
-  VALID_PAYTERMS
+  VALID_PAYTERMS,
+  listProducts,
+  VALID_UNITS
 } = require('./config/db');
 const {
   PERMISSION_MODULES,
@@ -371,6 +373,45 @@ app.patch('/api/customers/:custno/restore', requireDelegatedPermission('customer
   } catch (error) {
     console.error('Unable to restore customer:', error.message);
     return res.status(500).json({ message: 'Unable to restore customer.' });
+  }
+});
+
+app.get('/products', requireAuthenticatedPage, requireModulePage('products.view', ['admin', 'superadmin']), (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'products.html'));
+});
+
+app.get('/api/products', requireDelegatedPermission('products.view'), async (req, res) => {
+  try {
+    const search = String(req.query.search ?? req.query.q ?? '').trim();
+    const rawUnit = String(req.query.unit ?? '').trim().toLowerCase();
+    const unit = rawUnit === 'all' ? '' : rawUnit;
+    const rawStatus = String(req.query.status ?? 'Active').trim().toLowerCase();
+
+    if (unit && !VALID_UNITS.includes(unit)) {
+      return res.status(400).json({
+        message: `Invalid unit filter. Allowed values: ${VALID_UNITS.join(', ')}.`
+      });
+    }
+
+    if (!['active', 'inactive', 'all'].includes(rawStatus)) {
+      return res.status(400).json({
+        message: 'Invalid status filter. Allowed values: Active, Inactive, All.'
+      });
+    }
+
+    const status = rawStatus === 'all' ? 'All' : rawStatus === 'inactive' ? 'Inactive' : 'Active';
+    const products = await listProducts({ search, unit, status });
+
+    return res.json({
+      products,
+      total: products.length,
+      filters: { search, unit, status },
+      units: VALID_UNITS,
+      permissions: getUserPermissions(req.permissionActor)
+    });
+  } catch (error) {
+    console.error('Unable to load products:', error.message);
+    return res.status(500).json({ message: 'Unable to load products.' });
   }
 });
 

@@ -72,7 +72,7 @@ test('admin can manage users while regular users cannot', async () => {
     });
     assert.equal(adminModulesResponse.status, 200);
     const adminModules = (await adminModulesResponse.json()).modules;
-    assert.deepEqual(adminModules.map((module) => module.id), ['users', 'rights', 'customers']);
+    assert.deepEqual(adminModules.map((module) => module.id), ['users', 'rights', 'customers', 'products']);
     assert.equal(adminModules[1].href, '/admin/users#rights');
     const allowedAdminPage = await fetch(`${baseUrl}/admin/users`, {
       headers: { Cookie: adminCookie }
@@ -153,7 +153,7 @@ test('admin can manage users while regular users cannot', async () => {
     assert.equal(superAdminModulesResponse.status, 200);
     const superAdminDashboardModules = (await superAdminModulesResponse.json()).modules;
     assert.deepEqual(superAdminDashboardModules.map((module) => module.id), [
-      'users', 'accounts', 'roles', 'rights', 'customers'
+      'users', 'accounts', 'roles', 'rights', 'customers', 'products'
     ]);
     assert.equal(superAdminDashboardModules[0].href, '/superadmin/users#accounts');
     const superAdminUsers = await fetch(`${baseUrl}/api/superadmin/users`, {
