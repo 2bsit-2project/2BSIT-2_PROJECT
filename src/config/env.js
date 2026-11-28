@@ -18,11 +18,12 @@ function readPort(name, fallback) {
 module.exports = {
   PORT: readPort('PORT', 3000),
   NODE_ENV: process.env.NODE_ENV || 'development',
+  DATABASE_URL: process.env.DATABASE_URL || '',
+  DB_SSL: process.env.DB_SSL === 'true',
   DB_HOST: process.env.DB_HOST || 'localhost',
   DB_PORT: readPort('DB_PORT', 5432),
   DB_NAME: process.env.DB_NAME || 'infoman',
   DB_USER: process.env.DB_USER || 'postgres',
-
   DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
   APP_BASE_URL: process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
   SMTP_HOST: process.env.SMTP_HOST || '',
@@ -32,26 +33,7 @@ module.exports = {
   SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
   SMTP_FROM: process.env.SMTP_FROM || process.env.SMTP_USER || '',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || '',
-
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
   SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
   SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
-
-
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
-  SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
-  SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
-
-
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
-  SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL || '',
-  SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD || ''
-
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || ''
-
-  DB_PASSWORD: process.env.DB_PASSWORD || 'postgres'
-
-
-
-
 };
