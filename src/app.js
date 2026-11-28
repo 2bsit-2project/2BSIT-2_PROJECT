@@ -5,88 +5,50 @@ const { PORT, NODE_ENV } = require('./config/env');
 const {
   connectDatabase,
   getDbStatus,
-
-
-
-  listUsers,
-
-
-
-
   listManagedUsers,
   getUserById,
   getUserByEmail,
   createUser,
   ensureAdminUser,
-
   approvePendingUser,
   setUserRole,
   setUserPermissions,
-
-
-  approvePendingUser,
-  setUserRole,
-  setUserPermissions,
-
-  approvePendingUser,
-  setUserRole,
-
-
-
-
   updateManagedUser,
   setUserBlocked,
   updateUserPassword,
   createPasswordResetToken,
   deletePasswordResetTokens,
   resetPasswordWithToken,
-
   createSession,
   getSession,
-  deleteSession
+  deleteSession,
+  listCustomers,
+  getCustomerByNo,
+  createCustomer,
+  updateCustomer,
+  setCustomerStatus,
+  VALID_PAYTERMS,
+  listProducts,
+  getProductByCode,
+  createProduct,
+  updateProduct,
+  setProductStatus,
+  VALID_UNITS,
+  listPriceHistory,
+  addPriceHistory,
+  updatePriceHistory,
+  deletePriceHistory
 } = require('./config/db');
-
 const {
   PERMISSION_MODULES,
   ALL_PERMISSIONS,
   DEFAULT_ADMIN_PERMISSIONS,
   normalizePermissions,
-
   getUserPermissions,
   getDashboardModules
-
-  getUserPermissions
-
 } = require('./config/permissions');
 const { hashPassword, verifyPassword } = require('./config/security');
 const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
-
-
-
-
-const { hashPassword, verifyPassword } = require('./config/security');
-const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
-
-
-
-  getUserById,
-  getUserByEmail,
-  createUser,
-  updateUserPassword,
-
-  createSession,
-  getSession,
-  deleteSession,
-  updateUserStatus
-} = require('./config/db');
-const { hashPassword, verifyPassword } = require('./config/security');
-
-const { emailConfigured, sendPasswordResetEmail } = require('./config/email');
-
-
-
-
-
 
 const app = express();
 let activePort = PORT;
@@ -128,52 +90,16 @@ function toResponseShape(user) {
     email: user.email,
     username: user.username || user.email,
     status: user.status || 'pending',
-
     role: user.role || 'user',
     isBlocked: Boolean(user.isBlocked),
     permissions: getUserPermissions(user),
-
-
-    role: user.role || 'user',
-    isBlocked: Boolean(user.isBlocked),
-    permissions: getUserPermissions(user),
-
-
-    role: user.role || 'user',
-    isBlocked: Boolean(user.isBlocked),
-
-
-    role: user.role || 'user',
-    isBlocked: Boolean(user.isBlocked),
-
-
-
-
-
     createdAt: user.createdAt || user.created_at || new Date().toISOString()
   };
 }
 
 const SESSION_COOKIE = 'infoman_session';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-
 const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
-
-
-
-const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
-
-
-
-const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
-
-
-
-const PASSWORD_RESET_DURATION_MS = 60 * 60 * 1000;
-
-
-
-
 
 function getSessionToken(req) {
   const cookieHeader = req.headers.cookie || '';
@@ -200,7 +126,6 @@ async function getAuthenticatedUser(req) {
   const session = await getSession(tokenHash(token));
   return session ? getUserById(session.userId) : null;
 }
-
 
 function requireAdminPermission(permission) {
   return async (req, res, next) => {
@@ -256,7 +181,6 @@ function requireDelegatedPermission(permission) {
   };
 }
 
-
 function requireAuthenticatedPage(req, res, next) {
   getAuthenticatedUser(req).then((user) => {
     if (!user || user.isBlocked) {
@@ -280,63 +204,11 @@ function requireModulePage(permission, roles) {
   };
 }
 
-
-
-
-async function requireAdmin(req, res, next) {
-  try {
-    const user = await getAuthenticatedUser(req);
-    if (!user) {
-      return res.status(401).json({ message: 'Please log in to continue.' });
-    }
-    if (user.isBlocked) {
-      return res.status(403).json({ message: 'This account is blocked.' });
-    }
-    if (user.role !== 'admin') {
-      return res.status(403).json({ message: 'Administrator access is required.' });
-    }
-    req.adminUser = user;
-    return next();
-  } catch (error) {
-    console.error('Unable to verify administrator access:', error.message);
-    return res.status(500).json({ message: 'Unable to verify administrator access.' });
-  }
-}
-
-
-async function requireSuperAdmin(req, res, next) {
-  try {
-    const user = await getAuthenticatedUser(req);
-    if (!user) {
-      return res.status(401).json({ message: 'Please log in to continue.' });
-    }
-    if (user.isBlocked) {
-      return res.status(403).json({ message: 'This account is blocked.' });
-    }
-    if (user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Superadmin access is required.' });
-    }
-    req.superAdminUser = user;
-    return next();
-  } catch (error) {
-    console.error('Unable to verify Superadmin access:', error.message);
-    return res.status(500).json({ message: 'Unable to verify Superadmin access.' });
-  }
-}
-
-
-
-
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-
 app.get('/api', (req, res) => {
-
-
-app.get('/', (req, res) => {
-
   res.json({
     name: 'InfoMan',
     status: 'ok',
@@ -350,13 +222,449 @@ app.get('/', (req, res) => {
   });
 });
 
-
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'homepage.html'));
 });
 
 app.get('/dashboard', requireAuthenticatedPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+});
+
+app.get('/customers', requireAuthenticatedPage, requireModulePage('customers.view', ['admin', 'superadmin']), (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'customers.html'));
+});
+
+app.get('/api/customers', requireDelegatedPermission('customers.view'), async (req, res) => {
+  try {
+    const search = String(req.query.search ?? req.query.q ?? '').trim();
+    const rawPayterm = String(req.query.payterm ?? '').trim().toUpperCase();
+    const payterm = rawPayterm === 'ALL' ? '' : rawPayterm;
+    const rawStatus = String(req.query.status ?? 'Active').trim().toLowerCase();
+
+    if (payterm && !VALID_PAYTERMS.includes(payterm)) {
+      return res.status(400).json({
+        message: `Invalid payment term filter. Allowed values: ${VALID_PAYTERMS.join(', ')}.`
+      });
+    }
+
+    if (!['active', 'inactive', 'all'].includes(rawStatus)) {
+      return res.status(400).json({
+        message: 'Invalid status filter. Allowed values: Active, Inactive, All.'
+      });
+    }
+
+    const status = rawStatus === 'all' ? 'All' : rawStatus === 'inactive' ? 'Inactive' : 'Active';
+    const customers = await listCustomers({ search, payterm, status });
+
+    return res.json({
+      customers,
+      total: customers.length,
+      filters: { search, payterm, status },
+      payterms: VALID_PAYTERMS,
+      permissions: getUserPermissions(req.permissionActor)
+    });
+  } catch (error) {
+    console.error('Unable to load customers:', error.message);
+    return res.status(500).json({ message: 'Unable to load customers.' });
+  }
+});
+
+function validateCustomerInput(body, { allowCustNo = false } = {}) {
+  const custno = allowCustNo ? String(body?.custno ?? '').trim().toUpperCase() : '';
+  const custname = String(body?.custname ?? '').trim();
+  const address = String(body?.address ?? '').trim();
+  const payterm = String(body?.payterm ?? '').trim().toUpperCase();
+
+  if (allowCustNo && custno && !/^[A-Z0-9]{2,5}$/.test(custno)) {
+    return { error: 'Customer number must be 2 to 5 letters or numbers (for example C0030).' };
+  }
+  if (!custname) {
+    return { error: 'Customer name is required.' };
+  }
+  if (custname.length > 100) {
+    return { error: 'Customer name must be 100 characters or fewer.' };
+  }
+  if (!address) {
+    return { error: 'Customer address is required.' };
+  }
+  if (address.length > 255) {
+    return { error: 'Customer address must be 255 characters or fewer.' };
+  }
+  if (!VALID_PAYTERMS.includes(payterm)) {
+    return { error: `Payment term must be one of: ${VALID_PAYTERMS.join(', ')}.` };
+  }
+
+  return { data: { custno, custname, address, payterm } };
+}
+
+app.get('/api/customers/:custno', requireDelegatedPermission('customers.view'), async (req, res) => {
+  try {
+    const customer = await getCustomerByNo(req.params.custno);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({ customer });
+  } catch (error) {
+    console.error('Unable to load customer:', error.message);
+    return res.status(500).json({ message: 'Unable to load customer.' });
+  }
+});
+
+app.post('/api/customers', requireDelegatedPermission('customers.create'), async (req, res) => {
+  const validation = validateCustomerInput(req.body, { allowCustNo: true });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const customer = await createCustomer(validation.data);
+    return res.status(201).json({
+      message: 'Customer created successfully.',
+      customer
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_CUSTOMER') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to create customer:', error.message);
+    return res.status(500).json({ message: 'Unable to create customer.' });
+  }
+});
+
+app.put('/api/customers/:custno', requireDelegatedPermission('customers.edit'), async (req, res) => {
+  const validation = validateCustomerInput(req.body, { allowCustNo: false });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const customer = await updateCustomer(req.params.custno, validation.data);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({
+      message: 'Customer updated successfully.',
+      customer
+    });
+  } catch (error) {
+    console.error('Unable to update customer:', error.message);
+    return res.status(500).json({ message: 'Unable to update customer.' });
+  }
+});
+
+app.delete('/api/customers/:custno', requireDelegatedPermission('customers.delete'), async (req, res) => {
+  try {
+    const customer = await setCustomerStatus(req.params.custno, 'Inactive');
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({
+      message: 'Customer deactivated successfully.',
+      customer
+    });
+  } catch (error) {
+    console.error('Unable to deactivate customer:', error.message);
+    return res.status(500).json({ message: 'Unable to deactivate customer.' });
+  }
+});
+
+app.patch('/api/customers/:custno/restore', requireDelegatedPermission('customers.delete'), async (req, res) => {
+  try {
+    const customer = await setCustomerStatus(req.params.custno, 'Active');
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({
+      message: 'Customer restored successfully.',
+      customer
+    });
+  } catch (error) {
+    console.error('Unable to restore customer:', error.message);
+    return res.status(500).json({ message: 'Unable to restore customer.' });
+  }
+});
+
+app.get('/products', requireAuthenticatedPage, requireModulePage('products.view', ['admin', 'superadmin']), (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'products.html'));
+});
+
+app.get('/api/products', requireDelegatedPermission('products.view'), async (req, res) => {
+  try {
+    const search = String(req.query.search ?? req.query.q ?? '').trim();
+    const rawUnit = String(req.query.unit ?? '').trim().toLowerCase();
+    const unit = rawUnit === 'all' ? '' : rawUnit;
+    const rawStatus = String(req.query.status ?? 'Active').trim().toLowerCase();
+    const asOf = String(req.query.asOf ?? '').trim();
+
+    if (unit && !VALID_UNITS.includes(unit)) {
+      return res.status(400).json({
+        message: `Invalid unit filter. Allowed values: ${VALID_UNITS.join(', ')}.`
+      });
+    }
+
+    if (!['active', 'inactive', 'all'].includes(rawStatus)) {
+      return res.status(400).json({
+        message: 'Invalid status filter. Allowed values: Active, Inactive, All.'
+      });
+    }
+
+    if (asOf && !isValidIsoDate(asOf)) {
+      return res.status(400).json({
+        message: 'Invalid asOf date. Expected YYYY-MM-DD format.'
+      });
+    }
+
+    const status = rawStatus === 'all' ? 'All' : rawStatus === 'inactive' ? 'Inactive' : 'Active';
+    const products = await listProducts({ search, unit, status, asOf });
+
+    return res.json({
+      products,
+      total: products.length,
+      filters: { search, unit, status, asOf: asOf || new Date().toISOString().slice(0, 10) },
+      units: VALID_UNITS,
+      permissions: getUserPermissions(req.permissionActor)
+    });
+  } catch (error) {
+    console.error('Unable to load products:', error.message);
+    return res.status(500).json({ message: 'Unable to load products.' });
+  }
+});
+
+function validateProductInput(body, { allowProdCode = false } = {}) {
+  const prodcode = allowProdCode ? String(body?.prodcode ?? '').trim().toUpperCase() : '';
+  const description = String(body?.description ?? '').trim();
+  const unit = String(body?.unit ?? '').trim().toLowerCase();
+
+  if (allowProdCode && prodcode && !/^[A-Z0-9]{2,6}$/.test(prodcode)) {
+    return { error: 'Product code must be 2 to 6 letters or numbers (for example PD0001).' };
+  }
+  if (!description) {
+    return { error: 'Product description is required.' };
+  }
+  if (description.length > 100) {
+    return { error: 'Product description must be 100 characters or fewer.' };
+  }
+  if (!VALID_UNITS.includes(unit)) {
+    return { error: `Unit must be one of: ${VALID_UNITS.join(', ')}.` };
+  }
+
+  return { data: { prodcode, description, unit } };
+}
+
+app.get('/api/products/:prodcode', requireDelegatedPermission('products.view'), async (req, res) => {
+  try {
+    const asOf = String(req.query.asOf ?? '').trim();
+    if (asOf && !isValidIsoDate(asOf)) {
+      return res.status(400).json({ message: 'Invalid asOf date. Expected YYYY-MM-DD format.' });
+    }
+    const product = await getProductByCode(req.params.prodcode, asOf);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({ product });
+  } catch (error) {
+    console.error('Unable to load product:', error.message);
+    return res.status(500).json({ message: 'Unable to load product.' });
+  }
+});
+
+app.post('/api/products', requireDelegatedPermission('products.create'), async (req, res) => {
+  const validation = validateProductInput(req.body, { allowProdCode: true });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await createProduct(validation.data);
+    return res.status(201).json({
+      message: 'Product created successfully.',
+      product
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_PRODUCT') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to create product:', error.message);
+    return res.status(500).json({ message: 'Unable to create product.' });
+  }
+});
+
+app.put('/api/products/:prodcode', requireDelegatedPermission('products.edit'), async (req, res) => {
+  const validation = validateProductInput(req.body, { allowProdCode: false });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await updateProduct(req.params.prodcode, validation.data);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({
+      message: 'Product updated successfully.',
+      product
+    });
+  } catch (error) {
+    console.error('Unable to update product:', error.message);
+    return res.status(500).json({ message: 'Unable to update product.' });
+  }
+});
+
+app.delete('/api/products/:prodcode', requireDelegatedPermission('products.delete'), async (req, res) => {
+  try {
+    const product = await setProductStatus(req.params.prodcode, 'Inactive');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({
+      message: 'Product deactivated successfully.',
+      product
+    });
+  } catch (error) {
+    console.error('Unable to deactivate product:', error.message);
+    return res.status(500).json({ message: 'Unable to deactivate product.' });
+  }
+});
+
+app.patch('/api/products/:prodcode/restore', requireDelegatedPermission('products.delete'), async (req, res) => {
+  try {
+    const product = await setProductStatus(req.params.prodcode, 'Active');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({
+      message: 'Product restored successfully.',
+      product
+    });
+  } catch (error) {
+    console.error('Unable to restore product:', error.message);
+    return res.status(500).json({ message: 'Unable to restore product.' });
+  }
+});
+
+function isValidIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+}
+
+function validatePriceHistoryInput(body) {
+  const effdate = String(body?.effdate ?? '').trim();
+  const unitprice = Number(body?.unitprice);
+
+  if (!isValidIsoDate(effdate)) {
+    return { error: 'Effective date must be a valid date in YYYY-MM-DD format.' };
+  }
+  if (!Number.isFinite(unitprice) || unitprice <= 0) {
+    return { error: 'Unit price must be a number greater than 0.' };
+  }
+  return { data: { effdate, unitprice: Number(unitprice.toFixed(2)) } };
+}
+
+app.get('/api/products/:prodcode/prices', requireDelegatedPermission('prices.view'), async (req, res) => {
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const prices = await listPriceHistory(product.prodcode);
+    return res.json({
+      product,
+      prices,
+      total: prices.length,
+      permissions: getUserPermissions(req.permissionActor)
+    });
+  } catch (error) {
+    console.error('Unable to load price history:', error.message);
+    return res.status(500).json({ message: 'Unable to load price history.' });
+  }
+});
+
+app.post('/api/products/:prodcode/prices', requireDelegatedPermission('prices.create'), async (req, res) => {
+  const validation = validatePriceHistoryInput(req.body);
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const price = await addPriceHistory(product.prodcode, validation.data);
+    return res.status(201).json({
+      message: 'Price entry added successfully.',
+      price
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_PRICE_ENTRY') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to add price entry:', error.message);
+    return res.status(500).json({ message: 'Unable to add price entry.' });
+  }
+});
+
+app.put('/api/products/:prodcode/prices/:effdate', requireDelegatedPermission('prices.edit'), async (req, res) => {
+  const originalEffdate = String(req.params.effdate || '').trim();
+  if (!isValidIsoDate(originalEffdate)) {
+    return res.status(400).json({ message: 'Original effective date must be in YYYY-MM-DD format.' });
+  }
+  const validation = validatePriceHistoryInput(req.body);
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const price = await updatePriceHistory(product.prodcode, originalEffdate, validation.data);
+    if (!price) {
+      return res.status(404).json({ message: 'Price entry not found.' });
+    }
+    return res.json({
+      message: 'Price entry updated successfully.',
+      price
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_PRICE_ENTRY') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to update price entry:', error.message);
+    return res.status(500).json({ message: 'Unable to update price entry.' });
+  }
+});
+
+app.delete('/api/products/:prodcode/prices/:effdate', requireDelegatedPermission('prices.delete'), async (req, res) => {
+  const targetEffdate = String(req.params.effdate || '').trim();
+  if (!isValidIsoDate(targetEffdate)) {
+    return res.status(400).json({ message: 'Effective date must be in YYYY-MM-DD format.' });
+  }
+
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    const price = await deletePriceHistory(product.prodcode, targetEffdate);
+    if (!price) {
+      return res.status(404).json({ message: 'Price entry not found.' });
+    }
+    return res.json({
+      message: 'Price entry deleted successfully.',
+      price
+    });
+  } catch (error) {
+    console.error('Unable to delete price entry:', error.message);
+    return res.status(500).json({ message: 'Unable to delete price entry.' });
+  }
 });
 
 app.get('/api/dashboard/modules', async (req, res) => {
@@ -378,7 +686,6 @@ app.get('/api/dashboard/modules', async (req, res) => {
   }
 });
 
-
 app.get('/health', async (req, res) => {
   const dbStatus = getDbStatus();
 
@@ -398,7 +705,6 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
 });
 
-
 app.get('/forgot-password', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'forgot-password.html'));
 });
@@ -406,7 +712,6 @@ app.get('/forgot-password', (req, res) => {
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'reset-password.html'));
 });
-
 
 app.get(
   '/admin/users',
@@ -426,17 +731,6 @@ app.get(
   }
 );
 
-app.get('/admin/users', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin-users.html'));
-});
-
-
-app.get('/superadmin/users', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'superadmin-users.html'));
-});
-
-
-
 app.get('/api/auth/session', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -450,9 +744,8 @@ app.get('/api/auth/session', async (req, res) => {
   }
 });
 
-
 app.post('/api/auth/password-reset/request', async (req, res) => {
-  if (!emailConfigured) {
+  if (!emailConfigured && NODE_ENV === 'production') {
     return res.status(503).json({ message: 'Password reset email is not configured. Contact the administrator.' });
   }
 
@@ -463,6 +756,7 @@ app.post('/api/auth/password-reset/request', async (req, res) => {
     }
 
     const user = await getUserByEmail(email);
+    let resetUrl = null;
     if (user) {
       const token = randomBytes(32).toString('hex');
       await createPasswordResetToken(
@@ -470,15 +764,27 @@ app.post('/api/auth/password-reset/request', async (req, res) => {
         user.id,
         new Date(Date.now() + PASSWORD_RESET_DURATION_MS)
       );
-      try {
-        await sendPasswordResetEmail(user.email, token);
-      } catch (error) {
-        await deletePasswordResetTokens(user.id);
-        throw error;
+      if (emailConfigured) {
+        try {
+          await sendPasswordResetEmail(user.email, token);
+        } catch (error) {
+          await deletePasswordResetTokens(user.id);
+          throw error;
+        }
+      } else {
+        resetUrl = `/reset-password?token=${encodeURIComponent(token)}`;
       }
     }
 
-    return res.json({ message: 'If that email is registered, a password reset link has been sent.' });
+    const payload = {
+      message: resetUrl
+        ? 'Password reset link is ready. Open the link below to set a new password.'
+        : 'If that email is registered, a password reset link has been sent.'
+    };
+    if (resetUrl) {
+      payload.resetUrl = resetUrl;
+    }
+    return res.json(payload);
   } catch (error) {
     console.error('Unable to request password reset:', error.message);
     return res.status(500).json({ message: 'Unable to send a password reset email. Please try again later.' });
@@ -508,7 +814,6 @@ app.post('/api/auth/password-reset/confirm', async (req, res) => {
   }
 });
 
-
 app.post('/api/auth/login', async (req, res) => {
   try {
     const email = String((req.body && req.body.email) || '').trim();
@@ -526,25 +831,12 @@ app.post('/api/auth/login', async (req, res) => {
     if (!matches) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
-
     if (user.isBlocked) {
       return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
     }
     if (user.status !== 'active') {
       return res.status(403).json({ message: 'This account is pending approval.' });
     }
-
-
-
-
-
-    if (user.isBlocked) {
-      return res.status(403).json({ message: 'This account is blocked. Contact an administrator.' });
-    }
-
-
-
-
 
     if (needsRehash) {
       await updateUserPassword(user.id, await hashPassword(password));
@@ -574,29 +866,10 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
-
 app.get(['/api/users', '/users'], requireAdminPermission('users.view'), async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
     const items = await listManagedUsers(status);
-
-
-
-
-app.get(['/api/users', '/users'], requireAdmin, async (req, res) => {
-  try {
-    const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
-    const items = await listManagedUsers(status);
-
-
-app.get(['/api/users', '/users'], async (req, res) => {
-  try {
-    const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
-    const items = await listUsers(status);
-
-
-
-
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -606,32 +879,9 @@ app.get(['/api/users', '/users'], async (req, res) => {
   }
 });
 
-
 app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.view'), async (req, res) => {
   try {
     const items = await listManagedUsers('pending');
-
-
-app.get(['/api/users/pending', '/users/pending'], requireAdminPermission('users.view'), async (req, res) => {
-  try {
-    const items = await listManagedUsers('pending');
-
-app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res) => {
-  try {
-    const items = await listManagedUsers('pending');
-
-
-app.get(['/api/users/pending', '/users/pending'], requireAdmin, async (req, res) => {
-  try {
-    const items = await listManagedUsers('pending');
-
-app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
-  try {
-    const items = await listUsers('pending');
-
-
-
-
     res.json({
       count: items.length,
       users: items.map(toResponseShape)
@@ -641,28 +891,10 @@ app.get(['/api/users/pending', '/users/pending'], async (req, res) => {
   }
 });
 
-
 app.get('/api/users/:id', requireAdminPermission('users.view'), async (req, res) => {
   try {
     const user = await getUserById(req.params.id);
     if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
-
-
-
-
-app.get('/api/users/:id', requireAdmin, async (req, res) => {
-  try {
-    const user = await getUserById(req.params.id);
-    if (!user || String(user.role || 'user').toLowerCase() === 'superadmin') {
-
-app.get('/api/users/:id', async (req, res) => {
-  try {
-    const user = await getUserById(req.params.id);
-    if (!user) {
-
-
-
-
       return res.status(404).json({ message: 'User not found.' });
     }
 
@@ -675,24 +907,7 @@ app.get('/api/users/:id', async (req, res) => {
 async function registerUser(req, res) {
   try {
     const payload = normalizeUserPayload(req.body || {});
-
     payload.status = 'pending';
-
-
-
-    payload.status = 'pending';
-
-
-
-    payload.status = 'pending';
-
-
-
-    payload.status = 'pending';
-
-
-
-
 
     if (!payload.email) {
       return res.status(400).json({ message: 'Email is required.' });
@@ -719,16 +934,7 @@ async function registerUser(req, res) {
 
 app.post(['/api/users', '/api/users/register', '/api/register', '/users/register', '/register'], registerUser);
 
-
 app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, res) => {
-
-
-app.get('/api/admin/users', requireAdminPermission('users.view'), async (req, res) => {
-
-
-app.get('/api/admin/users', requireAdmin, async (req, res) => {
-
-
   try {
     const users = await listManagedUsers();
     return res.json({ count: users.length, users: users.map(toResponseShape) });
@@ -738,15 +944,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
   }
 });
 
-
 app.post('/api/admin/users', requireAdminPermission('users.create'), async (req, res) => {
-
-
-app.post('/api/admin/users', requireAdminPermission('users.create'), async (req, res) => {
-
-app.post('/api/admin/users', requireAdmin, async (req, res) => {
-
-
   try {
     const name = String((req.body && req.body.name) || '').trim();
     const email = String((req.body && req.body.email) || '').trim();
@@ -772,15 +970,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
   }
 });
 
-
 app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (req, res) => {
-
-
-app.patch('/api/admin/users/:id', requireAdminPermission('users.edit'), async (req, res) => {
-
-app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
-
-
   try {
     const name = String((req.body && req.body.name) || '').trim();
     const email = String((req.body && req.body.email) || '').trim();
@@ -802,15 +992,7 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
   }
 });
 
-
 app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), async (req, res) => {
-
-
-app.patch('/api/admin/users/:id/block', requireAdminPermission('users.block'), async (req, res) => {
-
-app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
-
-
   try {
     const isBlocked = req.body && req.body.isBlocked;
     if (typeof isBlocked !== 'boolean') {
@@ -835,16 +1017,7 @@ app.patch('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
   }
 });
 
-
 app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), async (req, res) => {
-
-
-app.get('/api/superadmin/users', requireDelegatedPermission('accounts.view'), async (req, res) => {
-
-
-app.get('/api/superadmin/users', requireSuperAdmin, async (req, res) => {
-
-
   try {
     const users = await listManagedUsers();
     return res.json({
@@ -857,15 +1030,7 @@ app.get('/api/superadmin/users', requireSuperAdmin, async (req, res) => {
   }
 });
 
-
 app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accounts.approve'), async (req, res) => {
-
-
-app.patch('/api/superadmin/users/:id/approve', requireDelegatedPermission('accounts.approve'), async (req, res) => {
-
-app.patch('/api/superadmin/users/:id/approve', requireSuperAdmin, async (req, res) => {
-
-
   try {
     const user = await approvePendingUser(req.params.id);
     if (!user) {
@@ -878,17 +1043,11 @@ app.patch('/api/superadmin/users/:id/approve', requireSuperAdmin, async (req, re
   }
 });
 
-
 app.patch('/api/superadmin/users/:id/role', (req, res, next) => {
   const requestedRole = String((req.body && req.body.role) || '').trim().toLowerCase();
   const requiredPermission = requestedRole === 'user' ? 'roles.remove_admin' : 'roles.assign_admin';
   return requireDelegatedPermission(requiredPermission)(req, res, next);
 }, async (req, res) => {
-
-
-app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) => {
-
-
   try {
     const role = String((req.body && req.body.role) || '').trim().toLowerCase();
     if (!['user', 'admin'].includes(role)) {
@@ -901,7 +1060,6 @@ app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) 
     if (target.status !== 'active') {
       return res.status(400).json({ message: 'Approve the user before changing their role.' });
     }
-
     if (target.role === role) {
       return res.status(400).json({ message: `User already has the ${role} role.` });
     }
@@ -911,11 +1069,6 @@ app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) 
         : getUserPermissions(req.permissionActor)
       : [];
     const user = await setUserRole(req.params.id, role, permissions);
-
-
-    const user = await setUserRole(req.params.id, role);
-
-
     if (!user) {
       return res.status(404).json({ message: 'Active user not found.' });
     }
@@ -929,15 +1082,7 @@ app.patch('/api/superadmin/users/:id/role', requireSuperAdmin, async (req, res) 
   }
 });
 
-
 app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('accounts.block'), async (req, res) => {
-
-
-app.patch('/api/superadmin/users/:id/block', requireDelegatedPermission('accounts.block'), async (req, res) => {
-
-app.patch('/api/superadmin/users/:id/block', requireSuperAdmin, async (req, res) => {
-
-
   try {
     const isBlocked = req.body && req.body.isBlocked;
     if (typeof isBlocked !== 'boolean') {
@@ -961,22 +1106,13 @@ app.patch('/api/superadmin/users/:id/block', requireSuperAdmin, async (req, res)
   }
 });
 
-
 app.patch('/api/users/:id/status', requireDelegatedPermission('accounts.approve'), async (req, res) => {
-
-
-app.patch('/api/users/:id/status', requireDelegatedPermission('accounts.approve'), async (req, res) => {
-
-app.patch('/api/users/:id/status', requireSuperAdmin, async (req, res) => {
-
-
   try {
     const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
     if (requestedStatus !== 'active') {
       return res.status(400).json({ message: 'Superadmins can approve pending accounts by setting status to active.' });
     }
     const user = await approvePendingUser(req.params.id);
-
 
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
@@ -1054,29 +1190,6 @@ app.put('/api/users/:id/permissions', requireDelegatedPermission('rights.manage'
   } catch (error) {
     console.error('Unable to update administrator rights:', error.message);
     return res.status(500).json({ message: 'Unable to update administrator rights.' });
-
-
-app.patch('/api/users/:id/status', requireAdmin, async (req, res) => {
-
-app.patch('/api/users/:id/status', async (req, res) => {
-
-  try {
-    const requestedStatus = req.body && req.body.status ? String(req.body.status).trim().toLowerCase() : 'pending';
-    const user = await updateUserStatus(req.params.id, requestedStatus);
-
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    return res.json({
-      message: 'User status updated successfully.',
-      user: toResponseShape(user)
-    });
-  } catch (error) {
-    return res.status(500).json({ message: 'Unable to update user status.', error: error.message });
-
-
   }
 });
 
@@ -1113,20 +1226,4 @@ module.exports = {
   app,
   startServer,
   getServerPort: () => activePort
-
 };
-
-
-};
-
-
-};
-
-
-};
-
-};
-
-
-
-

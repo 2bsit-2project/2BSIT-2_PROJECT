@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Products | Hope, Inc. ERP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #b7c3d2;
+        --sidebar: #0e1d2c;
+        --panel: #ffffff;
+        --primary: #3158e8;
+        --primary-hover: #2446c8;
+        --text: #17263f;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --danger: #b42318;
+        --success: #166534;
+      }
+      * { box-sizing: border-box; }
+      body {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      aside {
+        display: flex;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        flex-direction: column;
+        gap: 24px;
+        padding: 25px 19px 18px;
+        background: var(--sidebar);
+        color: #e8eef8;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; color: #f2f6fc; font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+      .brand-mark { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 8px; background: #16bfd0; color: white; font-size: 1.05rem; font-weight: 800; }
+      nav { display: grid; gap: 5px; }
+      nav a { display: flex; min-height: 40px; align-items: center; gap: 10px; border-radius: 8px; padding: 8px 10px; color: #aeb9c8; font-size: 0.84rem; font-weight: 500; text-decoration: none; }
+      nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      nav a[aria-current="page"] { background: var(--primary); color: #fff; }
+      .sidebar-bottom { display: flex; align-items: center; gap: 10px; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px; }
+      .avatar { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 50%; background: #263648; color: #eaf0f8; font-size: 0.74rem; font-weight: 700; }
+      .account { min-width: 0; flex: 1; margin: 0; color: #eff3f8; font-size: 0.75rem; line-height: 1.35; }
+      .account span { display: block; color: #8492a5; font-size: 0.68rem; }
+      .logout-button { border: 0; border-radius: 7px; padding: 7px; background: transparent; color: #96a4b7; font: inherit; font-size: 0.72rem; cursor: pointer; }
+      .logout-button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      main { width: min(100%, 1440px); min-width: 0; margin: 0 auto; padding: 28px clamp(20px, 3vw, 40px) 40px; }
+      .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+      .heading-actions { display: flex; align-items: center; gap: 10px; }
+      h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 1.7rem); letter-spacing: -0.03em; }
+      .subtitle { margin: 4px 0 0; color: #334155; font-size: 0.85rem; }
+      .role-badge { border: 1px solid rgba(255,255,255,0.8); border-radius: 999px; padding: 7px 12px; background: rgba(255,255,255,0.85); color: #475569; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .btn-primary { height: 38px; border: 0; border-radius: 8px; padding: 0 16px; background: var(--primary); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+      .btn-primary:hover { background: var(--primary-hover); }
+      .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+      .btn-secondary { height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
+      .btn-danger { height: 36px; border: 1px solid #fecaca; border-radius: 8px; padding: 0 12px; background: #fef2f2; color: var(--danger); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-danger:hover { background: #fee2e2; border-color: #fca5a5; }
+      .btn-restore { height: 36px; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0 12px; background: #f0fdf4; color: var(--success); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-restore:hover { background: #dcfce7; border-color: #86efac; }
+      .action-group { display: flex; gap: 8px; flex-wrap: wrap; }
+      .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+      .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); box-shadow: 0 6px 16px rgba(34,49,72,0.04); }
+      .stat-label { color: var(--muted); font-size: 0.74rem; font-weight: 600; }
+      .stat-value { display: block; margin-top: 6px; font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; margin-bottom: 20px; }
+      .form-panel { display: none; padding: 20px 22px; }
+      .form-panel.open { display: block; }
+      .form-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      .form-header h2 { margin: 0; font-size: 1.05rem; }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field.full { grid-column: 1 / -1; }
+      .field label { font-size: 0.78rem; font-weight: 600; color: #334155; }
+      .field input, .field select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.86rem; }
+      .field input:read-only { background: #f1f5f9; color: #475569; }
+      .field-hint { font-size: 0.72rem; color: var(--muted); }
+      .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); background: #f8fafc; }
+      .toolbar input, .toolbar select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.85rem; }
+      .toolbar input { flex: 1 1 260px; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+      th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+      th { background: #f8fafc; color: #475569; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      tbody tr:hover { background: #f8fafc; }
+      .code-cell { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: var(--primary); white-space: nowrap; }
+      .pill { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; }
+      .pill-ea { background: #dbeafe; color: #1e40af; }
+      .pill-pc { background: #ede9fe; color: #5b21b6; }
+      .pill-other { background: #fef3c7; color: #92400e; }
+      .pill-active { background: #dcfce7; color: #166534; }
+      .pill-inactive { background: #fee2e2; color: #991b1b; }
+      .state-box { padding: 28px 18px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+      .status-banner { display: none; margin: 14px 18px; border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; }
+      .status-banner.visible { display: block; }
+      .status-banner.error { border: 1px solid #fecaca; background: #fef2f2; color: var(--danger); }
+      .status-banner.success { border: 1px solid #bbf7d0; background: #f0fdf4; color: var(--success); }
+      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <aside aria-label="Main navigation">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">H</span><span>Hope, Inc. ERP</span></a>
+      <nav id="sidebar-nav">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/products" aria-current="page">Products</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="avatar" id="user-avatar">U</div>
+        <p class="account"><strong id="user-name">Loading...</strong><span id="user-email"></span></p>
+        <button class="logout-button" id="logout-btn" type="button">Log out</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="page-heading">
+        <div>
+          <h1>Product Catalog</h1>
+          <p class="subtitle">Search, filter, create, and edit Hope, Inc. products.</p>
+        </div>
+        <div class="heading-actions">
+          <button class="btn-primary" id="new-product-btn" type="button" hidden>Add Product</button>
+          <span class="role-badge" id="role-badge">Checking role...</span>
+        </div>
+      </div>
+
+      <section class="stat-grid" aria-label="Product summary">
+        <div class="stat-card"><span class="stat-label">Matching Products</span><span class="stat-value" id="stat-total">0</span></div>
+        <div class="stat-card"><span class="stat-label">Each (ea)</span><span class="stat-value" id="stat-ea">0</span></div>
+        <div class="stat-card"><span class="stat-label">Piece (pc)</span><span class="stat-value" id="stat-pc">0</span></div>
+        <div class="stat-card"><span class="stat-label">Other Units</span><span class="stat-value" id="stat-other">0</span></div>
+      </section>
+
+      <section class="panel form-panel" id="product-form-panel" aria-label="Product form">
+        <div class="form-header">
+          <h2 id="form-title">Add Product</h2>
+          <button class="btn-secondary" id="close-form-btn" type="button">Cancel</button>
+        </div>
+        <form id="product-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="field-prodcode">Product Code</label>
+              <input id="field-prodcode" name="prodcode" type="text" maxlength="6" placeholder="Auto-generated (e.g. PD0001)" />
+              <span class="field-hint" id="prodcode-hint">Leave blank to auto-assign the next product code.</span>
+            </div>
+            <div class="field">
+              <label for="field-unit">Unit</label>
+              <select id="field-unit" name="unit" required>
+                <option value="ea">Each (ea)</option>
+                <option value="pc">Piece (pc)</option>
+                <option value="mtr">Meter (mtr)</option>
+                <option value="pkg">Package (pkg)</option>
+                <option value="ltr">Liter (ltr)</option>
+              </select>
+            </div>
+            <div class="field full">
+              <label for="field-description">Description</label>
+              <input id="field-description" name="description" type="text" maxlength="100" required placeholder="Product name or description" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" id="cancel-form-btn" type="button">Cancel</button>
+            <button class="btn-primary" id="save-product-btn" type="submit">Save Product</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" aria-label="Product list">
+        <div class="toolbar">
+          <input id="search-input" type="search" placeholder="Search by product code or description..." aria-label="Search products" />
+          <select id="unit-filter" aria-label="Filter by unit">
+            <option value="">All units</option>
+            <option value="ea">Each (ea)</option>
+            <option value="pc">Piece (pc)</option>
+            <option value="mtr">Meter (mtr)</option>
+            <option value="pkg">Package (pkg)</option>
+            <option value="ltr">Liter (ltr)</option>
+          </select>
+          <select id="status-filter" aria-label="Filter by status">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="All">All statuses</option>
+          </select>
+          <button class="btn-secondary" id="clear-filters" type="button">Reset</button>
+        </div>
+
+        <div class="status-banner" id="status-banner" role="status" aria-live="polite"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Product Code</th>
+                <th>Description</th>
+                <th>Unit</th>
+                <th>Current Price</th>
+                <th>Status</th>
+                <th id="actions-header" hidden>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="products-tbody">
+              <tr><td colspan="6" class="state-box">Loading products...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel form-panel" id="price-history-panel" aria-label="Price history">
+        <div class="form-header">
+          <div>
+            <h2 id="price-panel-title">Price History</h2>
+            <p class="field-hint" id="price-panel-subtitle"></p>
+          </div>
+          <button class="btn-secondary" id="close-price-panel-btn" type="button">Close</button>
+        </div>
+
+        <div class="status-banner" id="price-status-banner" role="status" aria-live="polite"></div>
+
+        <form id="price-form" style="margin-bottom: 18px;" hidden>
+          <div class="form-grid">
+            <div class="field">
+              <label for="field-effdate">Effective Date</label>
+              <input id="field-effdate" name="effdate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="field-unitprice">Unit Price</label>
+              <input id="field-unitprice" name="unitprice" type="number" step="0.01" min="0.01" required placeholder="0.00" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" id="cancel-price-edit-btn" type="button" hidden>Cancel Edit</button>
+            <button class="btn-primary" id="save-price-btn" type="submit">Add Price</button>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Effective Date</th>
+                <th>Unit Price</th>
+                <th id="price-actions-header" hidden>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="prices-tbody">
+              <tr><td colspan="3" class="state-box">Select a product to view its price history.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script>
+      const searchInput = document.getElementById('search-input');
+      const unitFilter = document.getElementById('unit-filter');
+      const statusFilter = document.getElementById('status-filter');
+      const clearBtn = document.getElementById('clear-filters');
+      const tbody = document.getElementById('products-tbody');
+      const statusBanner = document.getElementById('status-banner');
+      const newProductBtn = document.getElementById('new-product-btn');
+      const actionsHeader = document.getElementById('actions-header');
+      const formPanel = document.getElementById('product-form-panel');
+      const productForm = document.getElementById('product-form');
+      const formTitle = document.getElementById('form-title');
+      const fieldProdcode = document.getElementById('field-prodcode');
+      const prodcodeHint = document.getElementById('prodcode-hint');
+      const fieldDescription = document.getElementById('field-description');
+      const fieldUnit = document.getElementById('field-unit');
+      const saveProductBtn = document.getElementById('save-product-btn');
+      const pricePanel = document.getElementById('price-history-panel');
+      const pricePanelTitle = document.getElementById('price-panel-title');
+      const pricePanelSubtitle = document.getElementById('price-panel-subtitle');
+      const priceStatusBanner = document.getElementById('price-status-banner');
+      const priceForm = document.getElementById('price-form');
+      const fieldEffdate = document.getElementById('field-effdate');
+      const fieldUnitprice = document.getElementById('field-unitprice');
+      const savePriceBtn = document.getElementById('save-price-btn');
+      const cancelPriceEditBtn = document.getElementById('cancel-price-edit-btn');
+      const priceActionsHeader = document.getElementById('price-actions-header');
+      const pricesTbody = document.getElementById('prices-tbody');
+      let searchTimer = null;
+      let currentPermissions = [];
+      let currentProducts = [];
+      let editingProdcode = null;
+      let activePriceProdcode = null;
+      let currentPrices = [];
+      let editingEffdate = null;
+
+      function escapeHtml(text) {
+        return String(text ?? '')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function showBanner(message, type) {
+        statusBanner.textContent = message;
+        statusBanner.className = `status-banner visible ${type}`;
+      }
+
+      function clearBanner() {
+        statusBanner.textContent = '';
+        statusBanner.className = 'status-banner';
+      }
+
+      function openCreateForm() {
+        editingProdcode = null;
+        formTitle.textContent = 'Add Product';
+        saveProductBtn.textContent = 'Create Product';
+        productForm.reset();
+        fieldProdcode.readOnly = false;
+        prodcodeHint.textContent = 'Leave blank to auto-assign the next product code.';
+        fieldUnit.value = 'ea';
+        formPanel.classList.add('open');
+        fieldDescription.focus();
+      }
+
+      function openEditForm(product) {
+        editingProdcode = product.prodcode;
+        formTitle.textContent = `Edit Product ${product.prodcode}`;
+        saveProductBtn.textContent = 'Save Changes';
+        fieldProdcode.value = product.prodcode;
+        fieldProdcode.readOnly = true;
+        prodcodeHint.textContent = 'Product code cannot be changed when editing.';
+        fieldDescription.value = product.description || '';
+        fieldUnit.value = product.unit || 'ea';
+        formPanel.classList.add('open');
+        fieldDescription.focus();
+      }
+
+      function closeForm() {
+        editingProdcode = null;
+        formPanel.classList.remove('open');
+        productForm.reset();
+      }
+
+      async function loadNavigation() {
+        const resp = await fetch('/api/dashboard/modules');
+        if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (!resp.ok) return;
+        const { user, modules } = await resp.json();
+        document.getElementById('user-name').textContent = user.name || 'User';
+        document.getElementById('user-email').textContent = user.email || '';
+        document.getElementById('user-avatar').textContent = (user.name || 'U').trim().charAt(0).toUpperCase();
+        document.getElementById('role-badge').textContent = (user.role || 'user').toUpperCase();
+        const nav = document.getElementById('sidebar-nav');
+        nav.innerHTML = '<a href="/dashboard">Dashboard</a>' + modules.map((m) =>
+          `<a href="${escapeHtml(m.href)}"${m.id === 'products' ? ' aria-current="page"' : ''}>${escapeHtml(m.label)}</a>`
+        ).join('');
+      }
+
+      async function loadProducts() {
+        const params = new URLSearchParams();
+        if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
+        if (unitFilter.value) params.set('unit', unitFilter.value);
+        if (statusFilter.value) params.set('status', statusFilter.value);
+        try {
+          const resp = await fetch(`/api/products?${params.toString()}`);
+          if (resp.status === 401) { window.location.href = '/login'; return; }
+          const data = await resp.json();
+          if (!resp.ok) {
+            showBanner(data.message || 'Unable to load products.', 'error');
+            tbody.innerHTML = '<tr><td colspan="5" class="state-box">Access denied or error loading products.</td></tr>';
+            return;
+          }
+          currentPermissions = Array.isArray(data.permissions) ? data.permissions : [];
+          currentProducts = data.products || [];
+          const canCreate = currentPermissions.includes('products.create');
+          const canEdit = currentPermissions.includes('products.edit');
+          const canDelete = currentPermissions.includes('products.delete');
+          const canViewPrices = currentPermissions.includes('prices.view');
+          const showActions = canEdit || canDelete || canViewPrices;
+          newProductBtn.hidden = !canCreate;
+          actionsHeader.hidden = !showActions;
+          const colSpan = showActions ? 6 : 5;
+
+          document.getElementById('stat-total').textContent = currentProducts.length;
+          document.getElementById('stat-ea').textContent = currentProducts.filter((p) => p.unit === 'ea').length;
+          document.getElementById('stat-pc').textContent = currentProducts.filter((p) => p.unit === 'pc').length;
+          document.getElementById('stat-other').textContent = currentProducts.filter((p) => p.unit !== 'ea' && p.unit !== 'pc').length;
+          if (!currentProducts.length) {
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="state-box">No products match your current search and filter criteria.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = currentProducts.map((p) => {
+            const unitCls = p.unit === 'ea' ? 'pill-ea' : p.unit === 'pc' ? 'pill-pc' : 'pill-other';
+            const isInactive = String(p.status).toLowerCase() === 'inactive';
+            const statusCls = isInactive ? 'pill-inactive' : 'pill-active';
+            const priceText = p.currentPrice !== null && p.currentPrice !== undefined
+              ? `<strong>${Number(p.currentPrice).toFixed(2)}</strong><div class="field-hint">eff. ${escapeHtml(p.priceEffDate || '')}</div>`
+              : '<span class="field-hint">No price</span>';
+            const buttons = [];
+            if (canViewPrices) {
+              buttons.push(`<button class="btn-secondary view-prices-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Prices</button>`);
+            }
+            if (canEdit) {
+              buttons.push(`<button class="btn-secondary edit-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Edit</button>`);
+            }
+            if (canDelete) {
+              if (isInactive) {
+                buttons.push(`<button class="btn-restore restore-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Restore</button>`);
+              } else {
+                buttons.push(`<button class="btn-danger delete-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Deactivate</button>`);
+              }
+            }
+            const actionCell = showActions
+              ? `<td><div class="action-group">${buttons.join('')}</div></td>`
+              : '';
+            return `<tr>
+              <td class="code-cell">${escapeHtml(p.prodcode)}</td>
+              <td>${escapeHtml(p.description)}</td>
+              <td><span class="pill ${unitCls}">${escapeHtml(p.unit)}</span></td>
+              <td>${priceText}</td>
+              <td><span class="pill ${statusCls}">${escapeHtml(p.status)}</span></td>
+              ${actionCell}
+            </tr>`;
+          }).join('');
+        } catch (err) {
+          showBanner('Network error while fetching products.', 'error');
+        }
+      }
+
+      function showPriceBanner(message, type) {
+        priceStatusBanner.textContent = message;
+        priceStatusBanner.className = `status-banner visible ${type}`;
+      }
+
+      function clearPriceBanner() {
+        priceStatusBanner.textContent = '';
+        priceStatusBanner.className = 'status-banner';
+      }
+
+      function resetPriceForm() {
+        editingEffdate = null;
+        priceForm.reset();
+        savePriceBtn.textContent = 'Add Price';
+        cancelPriceEditBtn.hidden = true;
+        const canCreatePrice = currentPermissions.includes('prices.create');
+        priceForm.hidden = !canCreatePrice;
+      }
+
+      async function openPriceHistory(product) {
+        activePriceProdcode = product.prodcode;
+        pricePanelTitle.textContent = `Price History: ${product.prodcode}`;
+        pricePanelSubtitle.textContent = product.description || '';
+        clearPriceBanner();
+        resetPriceForm();
+        pricePanel.classList.add('open');
+        await loadPriceHistory();
+        pricePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      async function loadPriceHistory() {
+        if (!activePriceProdcode) return;
+        try {
+          const resp = await fetch(`/api/products/${encodeURIComponent(activePriceProdcode)}/prices`);
+          if (resp.status === 401) { window.location.href = '/login'; return; }
+          const data = await resp.json();
+          if (!resp.ok) {
+            showPriceBanner(data.message || 'Unable to load price history.', 'error');
+            pricesTbody.innerHTML = '<tr><td colspan="3" class="state-box">Unable to load price history.</td></tr>';
+            return;
+          }
+          const perms = Array.isArray(data.permissions) ? data.permissions : currentPermissions;
+          currentPrices = data.prices || [];
+          const canEditPrice = perms.includes('prices.edit');
+          const canDeletePrice = perms.includes('prices.delete');
+          const showPriceActions = canEditPrice || canDeletePrice;
+          priceActionsHeader.hidden = !showPriceActions;
+          const colSpan = showPriceActions ? 3 : 2;
+          if (!currentPrices.length) {
+            pricesTbody.innerHTML = `<tr><td colspan="${colSpan}" class="state-box">No price history entries recorded yet.</td></tr>`;
+            return;
+          }
+          pricesTbody.innerHTML = currentPrices.map((entry) => {
+            const btns = [];
+            if (canEditPrice) {
+              btns.push(`<button class="btn-secondary edit-price-btn" type="button" data-effdate="${escapeHtml(entry.effdate)}">Edit</button>`);
+            }
+            if (canDeletePrice) {
+              btns.push(`<button class="btn-danger delete-price-btn" type="button" data-effdate="${escapeHtml(entry.effdate)}">Delete</button>`);
+            }
+            const actionCell = showPriceActions ? `<td><div class="action-group">${btns.join('')}</div></td>` : '';
+            return `<tr>
+              <td class="code-cell">${escapeHtml(entry.effdate)}</td>
+              <td>${Number(entry.unitprice).toFixed(2)}</td>
+              ${actionCell}
+            </tr>`;
+          }).join('');
+        } catch (err) {
+          showPriceBanner('Network error while loading price history.', 'error');
+        }
+      }
+
+      tbody.addEventListener('click', async (event) => {
+        const pricesBtn = event.target.closest('.view-prices-btn');
+        if (pricesBtn) {
+          const found = currentProducts.find((p) => p.prodcode === pricesBtn.dataset.prodcode);
+          if (found) await openPriceHistory(found);
+          return;
+        }
+        const editBtn = event.target.closest('.edit-product-btn');
+        if (editBtn) {
+          const found = currentProducts.find((p) => p.prodcode === editBtn.dataset.prodcode);
+          if (found) openEditForm(found);
+          return;
+        }
+        const deleteBtn = event.target.closest('.delete-product-btn');
+        if (deleteBtn) {
+          const prodcode = deleteBtn.dataset.prodcode;
+          if (!window.confirm(`Deactivate product ${prodcode}? You can restore this record later.`)) return;
+          clearBanner();
+          try {
+            const resp = await fetch(`/api/products/${encodeURIComponent(prodcode)}`, { method: 'DELETE' });
+            const result = await resp.json();
+            if (!resp.ok) {
+              showBanner(result.message || 'Unable to deactivate product.', 'error');
+              return;
+            }
+            showBanner(result.message || 'Product deactivated successfully.', 'success');
+            await loadProducts();
+          } catch (err) {
+            showBanner('Network error while deactivating product.', 'error');
+          }
+          return;
+        }
+        const restoreBtn = event.target.closest('.restore-product-btn');
+        if (restoreBtn) {
+          const prodcode = restoreBtn.dataset.prodcode;
+          if (!window.confirm(`Restore product ${prodcode} to Active status?`)) return;
+          clearBanner();
+          try {
+            const resp = await fetch(`/api/products/${encodeURIComponent(prodcode)}/restore`, { method: 'PATCH' });
+            const result = await resp.json();
+            if (!resp.ok) {
+              showBanner(result.message || 'Unable to restore product.', 'error');
+              return;
+            }
+            showBanner(result.message || 'Product restored successfully.', 'success');
+            await loadProducts();
+          } catch (err) {
+            showBanner('Network error while restoring product.', 'error');
+          }
+        }
+      });
+
+      productForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearBanner();
+        saveProductBtn.disabled = true;
+        const payload = {
+          description: fieldDescription.value.trim(),
+          unit: fieldUnit.value
+        };
+        if (!editingProdcode && fieldProdcode.value.trim()) {
+          payload.prodcode = fieldProdcode.value.trim().toUpperCase();
+        }
+        try {
+          const url = editingProdcode
+            ? `/api/products/${encodeURIComponent(editingProdcode)}`
+            : '/api/products';
+          const method = editingProdcode ? 'PUT' : 'POST';
+          const resp = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            showBanner(result.message || 'Unable to save product.', 'error');
+            return;
+          }
+          closeForm();
+          showBanner(result.message || 'Product saved successfully.', 'success');
+          await loadProducts();
+        } catch (err) {
+          showBanner('Network error while saving product.', 'error');
+        } finally {
+          saveProductBtn.disabled = false;
+        }
+      });
+
+      newProductBtn.addEventListener('click', openCreateForm);
+      document.getElementById('close-form-btn').addEventListener('click', closeForm);
+      document.getElementById('cancel-form-btn').addEventListener('click', closeForm);
+      document.getElementById('close-price-panel-btn').addEventListener('click', () => {
+        activePriceProdcode = null;
+        pricePanel.classList.remove('open');
+        resetPriceForm();
+      });
+      cancelPriceEditBtn.addEventListener('click', resetPriceForm);
+
+      pricesTbody.addEventListener('click', async (event) => {
+        const editBtn = event.target.closest('.edit-price-btn');
+        if (editBtn) {
+          const entry = currentPrices.find((p) => p.effdate === editBtn.dataset.effdate);
+          if (!entry) return;
+          editingEffdate = entry.effdate;
+          fieldEffdate.value = entry.effdate;
+          fieldUnitprice.value = Number(entry.unitprice).toFixed(2);
+          savePriceBtn.textContent = 'Update Price';
+          cancelPriceEditBtn.hidden = false;
+          priceForm.hidden = false;
+          fieldUnitprice.focus();
+          return;
+        }
+        const deleteBtn = event.target.closest('.delete-price-btn');
+        if (deleteBtn) {
+          const effdate = deleteBtn.dataset.effdate;
+          if (!window.confirm(`Delete price entry effective ${effdate} for ${activePriceProdcode}?`)) return;
+          clearPriceBanner();
+          try {
+            const resp = await fetch(`/api/products/${encodeURIComponent(activePriceProdcode)}/prices/${encodeURIComponent(effdate)}`, {
+              method: 'DELETE'
+            });
+            const result = await resp.json();
+            if (!resp.ok) {
+              showPriceBanner(result.message || 'Unable to delete price entry.', 'error');
+              return;
+            }
+            if (editingEffdate === effdate) resetPriceForm();
+            showPriceBanner(result.message || 'Price entry deleted successfully.', 'success');
+            await loadPriceHistory();
+            await loadProducts();
+          } catch (err) {
+            showPriceBanner('Network error while deleting price entry.', 'error');
+          }
+        }
+      });
+
+      priceForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!activePriceProdcode) return;
+        clearPriceBanner();
+        savePriceBtn.disabled = true;
+        const payload = {
+          effdate: fieldEffdate.value,
+          unitprice: Number(fieldUnitprice.value)
+        };
+        try {
+          const url = editingEffdate
+            ? `/api/products/${encodeURIComponent(activePriceProdcode)}/prices/${encodeURIComponent(editingEffdate)}`
+            : `/api/products/${encodeURIComponent(activePriceProdcode)}/prices`;
+          const method = editingEffdate ? 'PUT' : 'POST';
+          const resp = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            showPriceBanner(result.message || 'Unable to save price entry.', 'error');
+            return;
+          }
+          resetPriceForm();
+          showPriceBanner(result.message || 'Price entry saved successfully.', 'success');
+          await loadPriceHistory();
+          await loadProducts();
+        } catch (err) {
+          showPriceBanner('Network error while saving price entry.', 'error');
+        } finally {
+          savePriceBtn.disabled = false;
+        }
+      });
+      searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadProducts, 180); });
+      unitFilter.addEventListener('change', loadProducts);
+      statusFilter.addEventListener('change', loadProducts);
+      clearBtn.addEventListener('click', () => { searchInput.value = ''; unitFilter.value = ''; statusFilter.value = 'Active'; clearBanner(); loadProducts(); });
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+      });
+      loadNavigation();
+      loadProducts();
+    </script>
+  </body>
+</html>
