@@ -106,7 +106,6 @@
       .actions button { padding: 8px 10px; font-size: 0.82rem; }
       .empty { padding: 24px 10px; color: var(--muted); text-align: center; }
       .access-card { max-width: 540px; margin: 10vh auto; text-align: center; }
-
       dialog {
         width: min(680px, calc(100% - 32px));
         max-height: 85vh;
@@ -124,7 +123,6 @@
       .rights-action input { width: auto; margin: 0; }
       .rights-status { min-height: 1.3em; color: var(--success); }
       .rights-status.error { color: var(--danger); }
-
       [hidden] { display: none !important; }
       @media (max-width: 760px) {
         .layout { grid-template-columns: 1fr; }
@@ -139,10 +137,7 @@
     <header>
       <a href="/">InfoMan</a>
       <nav class="header-links">
-
         <a href="/dashboard">Dashboard</a>
-
-
         <a href="/register">Registration</a>
         <a href="/login">Account</a>
       </nav>
@@ -167,15 +162,7 @@
         <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
 
         <div class="layout">
-
           <section id="userFormPanel" class="panel">
-
-
-          <section id="userFormPanel" class="panel">
-
-          <section class="panel">
-
-
             <h2 id="formTitle">Add user</h2>
             <form id="userForm">
               <label>
@@ -209,13 +196,8 @@
                   <tr>
                     <th scope="col">User</th>
                     <th scope="col">Status</th>
-
                     <th id="roles" scope="col">Role</th>
                     <th id="rights" scope="col">Actions</th>
-
-                    <th scope="col">Role</th>
-                    <th scope="col">Actions</th>
-
                   </tr>
                 </thead>
                 <tbody id="userRows"></tbody>
@@ -226,7 +208,6 @@
         </div>
       </section>
     </main>
-
 
     <dialog id="rightsDialog" aria-labelledby="rightsDialogTitle">
       <h2 id="rightsDialogTitle">Action rights</h2>
@@ -240,20 +221,13 @@
     </dialog>
 
     <script src="/rights-dialog.js"></script>
-
     <script>
       const accessMessage = document.getElementById('accessMessage');
       const accessText = document.getElementById('accessText');
       const dashboard = document.getElementById('dashboard');
       const statusMessage = document.getElementById('statusMessage');
       const userForm = document.getElementById('userForm');
-
       const userFormPanel = document.getElementById('userFormPanel');
-
-
-      const userFormPanel = document.getElementById('userFormPanel');
-
-
       const formTitle = document.getElementById('formTitle');
       const nameInput = document.getElementById('nameInput');
       const emailInput = document.getElementById('emailInput');
@@ -267,14 +241,7 @@
       const emptyMessage = document.getElementById('emptyMessage');
       let users = [];
       let editingUserId = null;
-
       let currentUser = null;
-
-
-
-      let currentUser = null;
-
-
 
       function showStatus(message, type) {
         statusMessage.textContent = message;
@@ -333,7 +300,6 @@
 
           const actions = document.createElement('div');
           actions.className = 'actions';
-
           if (currentUser.permissions.includes('users.edit')) {
             const editButton = document.createElement('button');
             editButton.type = 'button';
@@ -364,26 +330,6 @@
             rightsButton.addEventListener('click', () => window.openRightsDialog(user, loadUsers));
             actions.append(rightsButton);
           }
-
-
-
-          const editButton = document.createElement('button');
-          editButton.type = 'button';
-          editButton.className = 'secondary';
-          editButton.textContent = 'Edit';
-          editButton.addEventListener('click', () => beginEdit(user));
-          actions.append(editButton);
-
-          const blockButton = document.createElement('button');
-          blockButton.type = 'button';
-          blockButton.className = user.isBlocked ? 'secondary' : 'danger';
-          blockButton.textContent = user.isBlocked ? 'Unblock' : 'Block';
-          blockButton.disabled = user.role === 'admin';
-          blockButton.title = user.role === 'admin' ? 'Administrator accounts cannot be blocked.' : '';
-          blockButton.addEventListener('click', () => changeBlockStatus(user));
-          actions.append(blockButton);
-
-
           addCell(row, actions);
           userRows.append(row);
         }
@@ -485,15 +431,8 @@
             return;
           }
 
-
           currentUser = session.user;
           userFormPanel.hidden = !currentUser.permissions.includes('users.create');
-
-
-          currentUser = session.user;
-          userFormPanel.hidden = !currentUser.permissions.includes('users.create');
-
-
           await loadUsers();
           accessMessage.hidden = true;
           dashboard.hidden = false;
