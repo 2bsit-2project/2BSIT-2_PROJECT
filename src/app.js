@@ -29,6 +29,9 @@ const {
   setCustomerStatus,
   VALID_PAYTERMS,
   listProducts,
+  getProductByCode,
+  createProduct,
+  updateProduct,
   VALID_UNITS
 } = require('./config/db');
 const {
@@ -412,6 +415,82 @@ app.get('/api/products', requireDelegatedPermission('products.view'), async (req
   } catch (error) {
     console.error('Unable to load products:', error.message);
     return res.status(500).json({ message: 'Unable to load products.' });
+  }
+});
+
+function validateProductInput(body, { allowProdCode = false } = {}) {
+  const prodcode = allowProdCode ? String(body?.prodcode ?? '').trim().toUpperCase() : '';
+  const description = String(body?.description ?? '').trim();
+  const unit = String(body?.unit ?? '').trim().toLowerCase();
+
+  if (allowProdCode && prodcode && !/^[A-Z0-9]{2,6}$/.test(prodcode)) {
+    return { error: 'Product code must be 2 to 6 letters or numbers (for example PD0001).' };
+  }
+  if (!description) {
+    return { error: 'Product description is required.' };
+  }
+  if (description.length > 100) {
+    return { error: 'Product description must be 100 characters or fewer.' };
+  }
+  if (!VALID_UNITS.includes(unit)) {
+    return { error: `Unit must be one of: ${VALID_UNITS.join(', ')}.` };
+  }
+
+  return { data: { prodcode, description, unit } };
+}
+
+app.get('/api/products/:prodcode', requireDelegatedPermission('products.view'), async (req, res) => {
+  try {
+    const product = await getProductByCode(req.params.prodcode);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({ product });
+  } catch (error) {
+    console.error('Unable to load product:', error.message);
+    return res.status(500).json({ message: 'Unable to load product.' });
+  }
+});
+
+app.post('/api/products', requireDelegatedPermission('products.create'), async (req, res) => {
+  const validation = validateProductInput(req.body, { allowProdCode: true });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await createProduct(validation.data);
+    return res.status(201).json({
+      message: 'Product created successfully.',
+      product
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_PRODUCT') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to create product:', error.message);
+    return res.status(500).json({ message: 'Unable to create product.' });
+  }
+});
+
+app.put('/api/products/:prodcode', requireDelegatedPermission('products.edit'), async (req, res) => {
+  const validation = validateProductInput(req.body, { allowProdCode: false });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const product = await updateProduct(req.params.prodcode, validation.data);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+    return res.json({
+      message: 'Product updated successfully.',
+      product
+    });
+  } catch (error) {
+    console.error('Unable to update product:', error.message);
+    return res.status(500).json({ message: 'Unable to update product.' });
   }
 });
 

@@ -11,10 +11,12 @@
         --sidebar: #0e1d2c;
         --panel: #ffffff;
         --primary: #3158e8;
+        --primary-hover: #2446c8;
         --text: #17263f;
         --muted: #64748b;
         --border: #e2e8f0;
         --danger: #b42318;
+        --success: #166534;
       }
       * { box-sizing: border-box; }
       body {
@@ -51,19 +53,35 @@
       .logout-button:hover { background: rgba(255,255,255,0.08); color: #fff; }
       main { width: min(100%, 1440px); min-width: 0; margin: 0 auto; padding: 28px clamp(20px, 3vw, 40px) 40px; }
       .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+      .heading-actions { display: flex; align-items: center; gap: 10px; }
       h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 1.7rem); letter-spacing: -0.03em; }
       .subtitle { margin: 4px 0 0; color: #334155; font-size: 0.85rem; }
       .role-badge { border: 1px solid rgba(255,255,255,0.8); border-radius: 999px; padding: 7px 12px; background: rgba(255,255,255,0.85); color: #475569; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .btn-primary { height: 38px; border: 0; border-radius: 8px; padding: 0 16px; background: var(--primary); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+      .btn-primary:hover { background: var(--primary-hover); }
+      .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+      .btn-secondary { height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
       .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
       .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); box-shadow: 0 6px 16px rgba(34,49,72,0.04); }
       .stat-label { color: var(--muted); font-size: 0.74rem; font-weight: 600; }
       .stat-value { display: block; margin-top: 6px; font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; }
-      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; margin-bottom: 20px; }
+      .form-panel { display: none; padding: 20px 22px; }
+      .form-panel.open { display: block; }
+      .form-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      .form-header h2 { margin: 0; font-size: 1.05rem; }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field.full { grid-column: 1 / -1; }
+      .field label { font-size: 0.78rem; font-weight: 600; color: #334155; }
+      .field input, .field select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.86rem; }
+      .field input:read-only { background: #f1f5f9; color: #475569; }
+      .field-hint { font-size: 0.72rem; color: var(--muted); }
+      .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
       .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); background: #f8fafc; }
       .toolbar input, .toolbar select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.85rem; }
       .toolbar input { flex: 1 1 260px; }
-      .toolbar button { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 14px; background: #fff; color: var(--text); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-      .toolbar button:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
       .table-wrap { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
       th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -77,9 +95,11 @@
       .pill-active { background: #dcfce7; color: #166534; }
       .pill-inactive { background: #fee2e2; color: #991b1b; }
       .state-box { padding: 28px 18px; text-align: center; color: var(--muted); font-size: 0.88rem; }
-      .error-banner { display: none; margin: 14px 18px; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; background: #fef2f2; color: var(--danger); font-size: 0.84rem; }
-      .error-banner.visible { display: block; }
-      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      .status-banner { display: none; margin: 14px 18px; border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; }
+      .status-banner.visible { display: block; }
+      .status-banner.error { border: 1px solid #fecaca; background: #fef2f2; color: var(--danger); }
+      .status-banner.success { border: 1px solid #bbf7d0; background: #f0fdf4; color: var(--success); }
+      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -100,9 +120,12 @@
       <div class="page-heading">
         <div>
           <h1>Product Catalog</h1>
-          <p class="subtitle">Search and filter Hope, Inc. products by code, description, unit, and status.</p>
+          <p class="subtitle">Search, filter, create, and edit Hope, Inc. products.</p>
         </div>
-        <span class="role-badge" id="role-badge">Checking role...</span>
+        <div class="heading-actions">
+          <button class="btn-primary" id="new-product-btn" type="button" hidden>Add Product</button>
+          <span class="role-badge" id="role-badge">Checking role...</span>
+        </div>
       </div>
 
       <section class="stat-grid" aria-label="Product summary">
@@ -110,6 +133,40 @@
         <div class="stat-card"><span class="stat-label">Each (ea)</span><span class="stat-value" id="stat-ea">0</span></div>
         <div class="stat-card"><span class="stat-label">Piece (pc)</span><span class="stat-value" id="stat-pc">0</span></div>
         <div class="stat-card"><span class="stat-label">Other Units</span><span class="stat-value" id="stat-other">0</span></div>
+      </section>
+
+      <section class="panel form-panel" id="product-form-panel" aria-label="Product form">
+        <div class="form-header">
+          <h2 id="form-title">Add Product</h2>
+          <button class="btn-secondary" id="close-form-btn" type="button">Cancel</button>
+        </div>
+        <form id="product-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="field-prodcode">Product Code</label>
+              <input id="field-prodcode" name="prodcode" type="text" maxlength="6" placeholder="Auto-generated (e.g. PD0001)" />
+              <span class="field-hint" id="prodcode-hint">Leave blank to auto-assign the next product code.</span>
+            </div>
+            <div class="field">
+              <label for="field-unit">Unit</label>
+              <select id="field-unit" name="unit" required>
+                <option value="ea">Each (ea)</option>
+                <option value="pc">Piece (pc)</option>
+                <option value="mtr">Meter (mtr)</option>
+                <option value="pkg">Package (pkg)</option>
+                <option value="ltr">Liter (ltr)</option>
+              </select>
+            </div>
+            <div class="field full">
+              <label for="field-description">Description</label>
+              <input id="field-description" name="description" type="text" maxlength="100" required placeholder="Product name or description" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" id="cancel-form-btn" type="button">Cancel</button>
+            <button class="btn-primary" id="save-product-btn" type="submit">Save Product</button>
+          </div>
+        </form>
       </section>
 
       <section class="panel" aria-label="Product list">
@@ -128,10 +185,10 @@
             <option value="Inactive">Inactive</option>
             <option value="All">All statuses</option>
           </select>
-          <button id="clear-filters" type="button">Reset</button>
+          <button class="btn-secondary" id="clear-filters" type="button">Reset</button>
         </div>
 
-        <div class="error-banner" id="error-banner" role="alert"></div>
+        <div class="status-banner" id="status-banner" role="status" aria-live="polite"></div>
 
         <div class="table-wrap">
           <table>
@@ -141,29 +198,83 @@
                 <th>Description</th>
                 <th>Unit</th>
                 <th>Status</th>
+                <th id="actions-header" hidden>Actions</th>
               </tr>
             </thead>
             <tbody id="products-tbody">
-              <tr><td colspan="4" class="state-box">Loading products...</td></tr>
+              <tr><td colspan="5" class="state-box">Loading products...</td></tr>
             </tbody>
           </table>
         </div>
       </section>
     </main>
-
     <script>
       const searchInput = document.getElementById('search-input');
       const unitFilter = document.getElementById('unit-filter');
       const statusFilter = document.getElementById('status-filter');
       const clearBtn = document.getElementById('clear-filters');
       const tbody = document.getElementById('products-tbody');
-      const errorBanner = document.getElementById('error-banner');
+      const statusBanner = document.getElementById('status-banner');
+      const newProductBtn = document.getElementById('new-product-btn');
+      const actionsHeader = document.getElementById('actions-header');
+      const formPanel = document.getElementById('product-form-panel');
+      const productForm = document.getElementById('product-form');
+      const formTitle = document.getElementById('form-title');
+      const fieldProdcode = document.getElementById('field-prodcode');
+      const prodcodeHint = document.getElementById('prodcode-hint');
+      const fieldDescription = document.getElementById('field-description');
+      const fieldUnit = document.getElementById('field-unit');
+      const saveProductBtn = document.getElementById('save-product-btn');
       let searchTimer = null;
+      let currentPermissions = [];
+      let currentProducts = [];
+      let editingProdcode = null;
 
       function escapeHtml(text) {
         return String(text ?? '')
           .replace(/&/g, '&amp;').replace(/</g, '&lt;')
           .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function showBanner(message, type) {
+        statusBanner.textContent = message;
+        statusBanner.className = `status-banner visible ${type}`;
+      }
+
+      function clearBanner() {
+        statusBanner.textContent = '';
+        statusBanner.className = 'status-banner';
+      }
+
+      function openCreateForm() {
+        editingProdcode = null;
+        formTitle.textContent = 'Add Product';
+        saveProductBtn.textContent = 'Create Product';
+        productForm.reset();
+        fieldProdcode.readOnly = false;
+        prodcodeHint.textContent = 'Leave blank to auto-assign the next product code.';
+        fieldUnit.value = 'ea';
+        formPanel.classList.add('open');
+        fieldDescription.focus();
+      }
+
+      function openEditForm(product) {
+        editingProdcode = product.prodcode;
+        formTitle.textContent = `Edit Product ${product.prodcode}`;
+        saveProductBtn.textContent = 'Save Changes';
+        fieldProdcode.value = product.prodcode;
+        fieldProdcode.readOnly = true;
+        prodcodeHint.textContent = 'Product code cannot be changed when editing.';
+        fieldDescription.value = product.description || '';
+        fieldUnit.value = product.unit || 'ea';
+        formPanel.classList.add('open');
+        fieldDescription.focus();
+      }
+
+      function closeForm() {
+        editingProdcode = null;
+        formPanel.classList.remove('open');
+        productForm.reset();
       }
 
       async function loadNavigation() {
@@ -182,7 +293,6 @@
       }
 
       async function loadProducts() {
-        errorBanner.classList.remove('visible');
         const params = new URLSearchParams();
         if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
         if (unitFilter.value) params.set('unit', unitFilter.value);
@@ -192,40 +302,95 @@
           if (resp.status === 401) { window.location.href = '/login'; return; }
           const data = await resp.json();
           if (!resp.ok) {
-            errorBanner.textContent = data.message || 'Unable to load products.';
-            errorBanner.classList.add('visible');
-            tbody.innerHTML = '<tr><td colspan="4" class="state-box">Access denied or error loading products.</td></tr>';
+            showBanner(data.message || 'Unable to load products.', 'error');
+            tbody.innerHTML = '<tr><td colspan="5" class="state-box">Access denied or error loading products.</td></tr>';
             return;
           }
-          const rows = data.products || [];
-          document.getElementById('stat-total').textContent = rows.length;
-          document.getElementById('stat-ea').textContent = rows.filter((p) => p.unit === 'ea').length;
-          document.getElementById('stat-pc').textContent = rows.filter((p) => p.unit === 'pc').length;
-          document.getElementById('stat-other').textContent = rows.filter((p) => p.unit !== 'ea' && p.unit !== 'pc').length;
-          if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="state-box">No products match your current search and filter criteria.</td></tr>';
+          currentPermissions = Array.isArray(data.permissions) ? data.permissions : [];
+          currentProducts = data.products || [];
+          const canCreate = currentPermissions.includes('products.create');
+          const canEdit = currentPermissions.includes('products.edit');
+          newProductBtn.hidden = !canCreate;
+          actionsHeader.hidden = !canEdit;
+          const colSpan = canEdit ? 5 : 4;
+
+          document.getElementById('stat-total').textContent = currentProducts.length;
+          document.getElementById('stat-ea').textContent = currentProducts.filter((p) => p.unit === 'ea').length;
+          document.getElementById('stat-pc').textContent = currentProducts.filter((p) => p.unit === 'pc').length;
+          document.getElementById('stat-other').textContent = currentProducts.filter((p) => p.unit !== 'ea' && p.unit !== 'pc').length;
+          if (!currentProducts.length) {
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="state-box">No products match your current search and filter criteria.</td></tr>`;
             return;
           }
-          tbody.innerHTML = rows.map((p) => {
+          tbody.innerHTML = currentProducts.map((p) => {
             const unitCls = p.unit === 'ea' ? 'pill-ea' : p.unit === 'pc' ? 'pill-pc' : 'pill-other';
             const statusCls = String(p.status).toLowerCase() === 'inactive' ? 'pill-inactive' : 'pill-active';
+            const actionCell = canEdit
+              ? `<td><button class="btn-secondary edit-product-btn" type="button" data-prodcode="${escapeHtml(p.prodcode)}">Edit</button></td>`
+              : '';
             return `<tr>
               <td class="code-cell">${escapeHtml(p.prodcode)}</td>
               <td>${escapeHtml(p.description)}</td>
               <td><span class="pill ${unitCls}">${escapeHtml(p.unit)}</span></td>
               <td><span class="pill ${statusCls}">${escapeHtml(p.status)}</span></td>
+              ${actionCell}
             </tr>`;
           }).join('');
         } catch (err) {
-          errorBanner.textContent = 'Network error while fetching products.';
-          errorBanner.classList.add('visible');
+          showBanner('Network error while fetching products.', 'error');
         }
       }
 
+      tbody.addEventListener('click', (event) => {
+        const btn = event.target.closest('.edit-product-btn');
+        if (!btn) return;
+        const found = currentProducts.find((p) => p.prodcode === btn.dataset.prodcode);
+        if (found) openEditForm(found);
+      });
+
+      productForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearBanner();
+        saveProductBtn.disabled = true;
+        const payload = {
+          description: fieldDescription.value.trim(),
+          unit: fieldUnit.value
+        };
+        if (!editingProdcode && fieldProdcode.value.trim()) {
+          payload.prodcode = fieldProdcode.value.trim().toUpperCase();
+        }
+        try {
+          const url = editingProdcode
+            ? `/api/products/${encodeURIComponent(editingProdcode)}`
+            : '/api/products';
+          const method = editingProdcode ? 'PUT' : 'POST';
+          const resp = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            showBanner(result.message || 'Unable to save product.', 'error');
+            return;
+          }
+          closeForm();
+          showBanner(result.message || 'Product saved successfully.', 'success');
+          await loadProducts();
+        } catch (err) {
+          showBanner('Network error while saving product.', 'error');
+        } finally {
+          saveProductBtn.disabled = false;
+        }
+      });
+
+      newProductBtn.addEventListener('click', openCreateForm);
+      document.getElementById('close-form-btn').addEventListener('click', closeForm);
+      document.getElementById('cancel-form-btn').addEventListener('click', closeForm);
       searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadProducts, 180); });
       unitFilter.addEventListener('change', loadProducts);
       statusFilter.addEventListener('change', loadProducts);
-      clearBtn.addEventListener('click', () => { searchInput.value = ''; unitFilter.value = ''; statusFilter.value = 'Active'; loadProducts(); });
+      clearBtn.addEventListener('click', () => { searchInput.value = ''; unitFilter.value = ''; statusFilter.value = 'Active'; clearBanner(); loadProducts(); });
       document.getElementById('logout-btn').addEventListener('click', async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';

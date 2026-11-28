@@ -68,6 +68,57 @@ test('product list supports search, unit filter, and permission checks', async (
     assert.equal((await fetch(`${baseUrl}/api/products?unit=box`, { headers: { Cookie: superCookie } })).status, 400);
     assert.equal((await fetch(`${baseUrl}/api/products?status=archived`, { headers: { Cookie: superCookie } })).status, 400);
 
+    const createAuto = await requestJson(`${baseUrl}/api/products`, 'POST', {
+      description: 'USB-C Docking Station',
+      unit: 'ea'
+    }, superCookie);
+    assert.equal(createAuto.status, 201);
+    const createdAuto = (await createAuto.json()).product;
+    assert.equal(createdAuto.prodcode, 'PD0001');
+    assert.equal(createdAuto.description, 'USB-C Docking Station');
+    assert.equal(createdAuto.unit, 'ea');
+
+    const createExplicit = await requestJson(`${baseUrl}/api/products`, 'POST', {
+      prodcode: 'cb0001',
+      description: 'Cat6 Ethernet Cable',
+      unit: 'mtr'
+    }, superCookie);
+    assert.equal(createExplicit.status, 201);
+    assert.equal((await createExplicit.json()).product.prodcode, 'CB0001');
+
+    assert.equal((await requestJson(`${baseUrl}/api/products`, 'POST', {
+      prodcode: 'CB0001',
+      description: 'Duplicate Product',
+      unit: 'mtr'
+    }, superCookie)).status, 409);
+
+    assert.equal((await requestJson(`${baseUrl}/api/products`, 'POST', {
+      description: '',
+      unit: 'ea'
+    }, superCookie)).status, 400);
+    assert.equal((await requestJson(`${baseUrl}/api/products`, 'POST', {
+      description: 'Invalid Unit Item',
+      unit: 'box'
+    }, superCookie)).status, 400);
+
+    const getOne = await fetch(`${baseUrl}/api/products/PD0001`, { headers: { Cookie: superCookie } });
+    assert.equal(getOne.status, 200);
+    assert.equal((await getOne.json()).product.description, 'USB-C Docking Station');
+
+    const updateResp = await requestJson(`${baseUrl}/api/products/PD0001`, 'PUT', {
+      description: 'USB-C Dual 4K Dock',
+      unit: 'pc'
+    }, superCookie);
+    assert.equal(updateResp.status, 200);
+    const updatedProduct = (await updateResp.json()).product;
+    assert.equal(updatedProduct.description, 'USB-C Dual 4K Dock');
+    assert.equal(updatedProduct.unit, 'pc');
+
+    assert.equal((await requestJson(`${baseUrl}/api/products/ZZ9999`, 'PUT', {
+      description: 'Missing Product',
+      unit: 'ea'
+    }, superCookie)).status, 404);
+
     const userEmail = `prod-user-${Date.now()}@example.com`;
     const regResp = await requestJson(`${baseUrl}/api/users`, 'POST', {
       name: 'Regular User',
@@ -94,6 +145,32 @@ test('product list supports search, unit filter, and permission checks', async (
     });
     const adminCookie = adminLogin.headers.get('set-cookie').split(';', 1)[0];
     assert.equal((await fetch(`${baseUrl}/api/products`, { headers: { Cookie: adminCookie } })).status, 200);
+
+    const adminCreate = await requestJson(`${baseUrl}/api/products`, 'POST', {
+      description: 'Admin Added Item',
+      unit: 'pkg'
+    }, adminCookie);
+    assert.equal(adminCreate.status, 201);
+    const adminProdCode = (await adminCreate.json()).product.prodcode;
+
+    const adminEdit = await requestJson(`${baseUrl}/api/products/${adminProdCode}`, 'PUT', {
+      description: 'Admin Updated Item',
+      unit: 'ltr'
+    }, adminCookie);
+    assert.equal(adminEdit.status, 200);
+
+    const revokeWrite = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
+      permissions: ['users.view', 'products.view']
+    }, superCookie);
+    assert.equal(revokeWrite.status, 200);
+    assert.equal((await requestJson(`${baseUrl}/api/products`, 'POST', {
+      description: 'Blocked Create',
+      unit: 'ea'
+    }, adminCookie)).status, 403);
+    assert.equal((await requestJson(`${baseUrl}/api/products/${adminProdCode}`, 'PUT', {
+      description: 'Blocked Edit',
+      unit: 'ea'
+    }, adminCookie)).status, 403);
 
     const revoke = await requestJson(`${baseUrl}/api/users/${admin.id}/permissions`, 'PUT', {
       permissions: ['users.view']

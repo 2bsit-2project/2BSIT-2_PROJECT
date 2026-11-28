@@ -1136,6 +1136,120 @@ async function listProducts({ search = '', unit = '', status = 'Active' } = {}) 
     .map((product) => ({ ...product }));
 }
 
+function normalizeProdCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function nextProductCode(existingCodes) {
+  let maxNumber = 0;
+  for (const code of existingCodes) {
+    const match = /^PD(\d+)$/i.exec(String(code || '').trim());
+    if (match) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (parsed > maxNumber) {
+        maxNumber = parsed;
+      }
+    }
+  }
+  return `PD${String(maxNumber + 1).padStart(4, '0')}`;
+}
+
+async function getProductByCode(prodcode) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  if (!normalizedCode) {
+    return null;
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `SELECT prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp
+       FROM product
+       WHERE UPPER(prodcode) = $1
+       LIMIT 1`,
+      [normalizedCode]
+    );
+    return result.rows[0] ? productRowToRecord(result.rows[0]) : null;
+  }
+
+  const found = inMemoryProducts.find((item) => normalizeProdCode(item.prodcode) === normalizedCode);
+  return found ? { ...found } : null;
+}
+
+async function createProduct({ prodcode = '', description, unit }) {
+  const normalizedDescription = String(description || '').trim();
+  const normalizedUnit = String(unit || '').trim().toLowerCase();
+  let normalizedCode = normalizeProdCode(prodcode);
+
+  if (dbStatus === 'connected') {
+    if (!normalizedCode) {
+      const existing = await pool.query('SELECT prodcode FROM product');
+      normalizedCode = nextProductCode(existing.rows.map((row) => row.prodcode));
+    }
+    try {
+      const result = await pool.query(
+        `INSERT INTO product (prodcode, description, unit, status, stamp)
+         VALUES ($1, $2, $3, 'Active', NOW())
+         RETURNING prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp`,
+        [normalizedCode, normalizedDescription, normalizedUnit]
+      );
+      return productRowToRecord(result.rows[0]);
+    } catch (error) {
+      if (error.code === '23505') {
+        const duplicateError = new Error(`Product code ${normalizedCode} already exists.`);
+        duplicateError.code = 'DUPLICATE_PRODUCT';
+        throw duplicateError;
+      }
+      throw error;
+    }
+  }
+
+  if (!normalizedCode) {
+    normalizedCode = nextProductCode(inMemoryProducts.map((item) => item.prodcode));
+  }
+  const duplicate = inMemoryProducts.find((item) => normalizeProdCode(item.prodcode) === normalizedCode);
+  if (duplicate) {
+    const duplicateError = new Error(`Product code ${normalizedCode} already exists.`);
+    duplicateError.code = 'DUPLICATE_PRODUCT';
+    throw duplicateError;
+  }
+
+  const record = {
+    prodcode: normalizedCode,
+    description: normalizedDescription,
+    unit: normalizedUnit,
+    status: 'Active',
+    stamp: new Date().toISOString()
+  };
+  inMemoryProducts.push(record);
+  return { ...record };
+}
+
+async function updateProduct(prodcode, { description, unit }) {
+  const normalizedCode = normalizeProdCode(prodcode);
+  const normalizedDescription = String(description || '').trim();
+  const normalizedUnit = String(unit || '').trim().toLowerCase();
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE product
+       SET description = $1, unit = $2, stamp = NOW()
+       WHERE UPPER(prodcode) = $3
+       RETURNING prodcode, description, unit, COALESCE(status, 'Active') AS status, stamp`,
+      [normalizedDescription, normalizedUnit, normalizedCode]
+    );
+    return result.rows[0] ? productRowToRecord(result.rows[0]) : null;
+  }
+
+  const product = inMemoryProducts.find((item) => normalizeProdCode(item.prodcode) === normalizedCode);
+  if (!product) {
+    return null;
+  }
+  product.description = normalizedDescription;
+  product.unit = normalizedUnit;
+  product.stamp = new Date().toISOString();
+  return { ...product };
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -1168,5 +1282,8 @@ module.exports = {
   setCustomerStatus,
   VALID_PAYTERMS,
   listProducts,
+  getProductByCode,
+  createProduct,
+  updateProduct,
   VALID_UNITS
 };
