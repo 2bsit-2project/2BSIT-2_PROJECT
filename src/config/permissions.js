@@ -32,6 +32,26 @@ const PERMISSION_MODULES = [
     actions: [
       { id: 'manage', label: 'Assign action rights' }
     ]
+  },
+  {
+    id: 'customers',
+    label: 'Customers',
+    actions: [
+      { id: 'view', label: 'View customers' },
+      { id: 'create', label: 'Add customers' },
+      { id: 'edit', label: 'Edit customers' },
+      { id: 'delete', label: 'Delete or restore customers' }
+    ]
+  },
+  {
+    id: 'products',
+    label: 'Products',
+    actions: [
+      { id: 'view', label: 'View products' },
+      { id: 'create', label: 'Add products' },
+      { id: 'edit', label: 'Edit products' },
+      { id: 'delete', label: 'Delete or restore products' }
+    ]
   }
 ];
 
@@ -44,9 +64,13 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'users.create',
   'users.edit',
   'users.block',
-  'rights.manage'
+  'rights.manage',
+  'customers.view',
+  'customers.create',
+  'customers.edit',
+  'customers.delete',
+  'products.view'
 ];
-
 
 const DASHBOARD_MODULES = [
   {
@@ -77,9 +101,22 @@ const DASHBOARD_MODULES = [
     description: 'Set action-level permissions for administrators.',
     requires: [],
     anyOf: ['rights.manage']
+  },
+  {
+    id: 'customers',
+    label: 'Customers',
+    description: 'Search, filter, and review customer accounts and payment terms.',
+    href: '/customers',
+    requires: ['customers.view']
+  },
+  {
+    id: 'products',
+    label: 'Products',
+    description: 'Search, filter, and review product catalog items and units.',
+    href: '/products',
+    requires: ['products.view']
   }
 ];
-
 
 function normalizePermissions(permissions) {
   if (!Array.isArray(permissions)) {
@@ -103,7 +140,6 @@ function getUserPermissions(user) {
   }
   return [...DEFAULT_ADMIN_PERMISSIONS];
 }
-
 
 function getDashboardModules(user) {
   const permissions = getUserPermissions(user);
@@ -134,18 +170,12 @@ function getDashboardModules(user) {
     }));
 }
 
-
 module.exports = {
   PERMISSION_MODULES,
   ALL_PERMISSIONS,
   DEFAULT_ADMIN_PERMISSIONS,
-
   DASHBOARD_MODULES,
   normalizePermissions,
   getUserPermissions,
   getDashboardModules
-
-  normalizePermissions,
-  getUserPermissions
-
 };
