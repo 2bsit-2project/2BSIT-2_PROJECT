@@ -11,10 +11,12 @@
         --sidebar: #0e1d2c;
         --panel: #ffffff;
         --primary: #3158e8;
+        --primary-hover: #2446c8;
         --text: #17263f;
         --muted: #64748b;
         --border: #e2e8f0;
         --danger: #b42318;
+        --success: #166534;
       }
       * { box-sizing: border-box; }
       body {
@@ -50,20 +52,36 @@
       .logout-button { border: 0; border-radius: 7px; padding: 7px; background: transparent; color: #96a4b7; font: inherit; font-size: 0.72rem; cursor: pointer; }
       .logout-button:hover { background: rgba(255,255,255,0.08); color: #fff; }
       main { width: min(100%, 1440px); min-width: 0; margin: 0 auto; padding: 28px clamp(20px, 3vw, 40px) 40px; }
-      .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+      .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+      .heading-actions { display: flex; align-items: center; gap: 10px; }
       h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 1.7rem); letter-spacing: -0.03em; }
       .subtitle { margin: 4px 0 0; color: #334155; font-size: 0.85rem; }
       .role-badge { border: 1px solid rgba(255,255,255,0.8); border-radius: 999px; padding: 7px 12px; background: rgba(255,255,255,0.85); color: #475569; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .btn-primary { height: 38px; border: 0; border-radius: 8px; padding: 0 16px; background: var(--primary); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+      .btn-primary:hover { background: var(--primary-hover); }
+      .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+      .btn-secondary { height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+      .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
       .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
       .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); box-shadow: 0 6px 16px rgba(34,49,72,0.04); }
       .stat-label { color: var(--muted); font-size: 0.74rem; font-weight: 600; }
       .stat-value { display: block; margin-top: 6px; font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; }
-      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; }
+      .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 8px 20px rgba(34,49,72,0.05); overflow: hidden; margin-bottom: 20px; }
+      .form-panel { display: none; padding: 20px 22px; }
+      .form-panel.open { display: block; }
+      .form-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      .form-header h2 { margin: 0; font-size: 1.05rem; }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field.full { grid-column: 1 / -1; }
+      .field label { font-size: 0.78rem; font-weight: 600; color: #334155; }
+      .field input, .field select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.86rem; }
+      .field input:read-only { background: #f1f5f9; color: #475569; }
+      .field-hint { font-size: 0.72rem; color: var(--muted); }
+      .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
       .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); background: #f8fafc; }
       .toolbar input, .toolbar select { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--text); font: inherit; font-size: 0.85rem; }
       .toolbar input { flex: 1 1 260px; }
-      .toolbar button { height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 14px; background: #fff; color: var(--text); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-      .toolbar button:hover { background: #eff6ff; border-color: #93c5fd; color: var(--primary); }
       .table-wrap { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
       th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -77,9 +95,11 @@
       .pill-active { background: #dcfce7; color: #166534; }
       .pill-inactive { background: #fee2e2; color: #991b1b; }
       .state-box { padding: 28px 18px; text-align: center; color: var(--muted); font-size: 0.88rem; }
-      .error-banner { display: none; margin: 14px 18px; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; background: #fef2f2; color: var(--danger); font-size: 0.84rem; }
-      .error-banner.visible { display: block; }
-      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      .status-banner { display: none; margin: 14px 18px; border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; }
+      .status-banner.visible { display: block; }
+      .status-banner.error { border: 1px solid #fecaca; background: #fef2f2; color: var(--danger); }
+      .status-banner.success { border: 1px solid #bbf7d0; background: #f0fdf4; color: var(--success); }
+      @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { position: static; height: auto; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -95,13 +115,17 @@
         <button class="logout-button" id="logout-btn" type="button">Log out</button>
       </div>
     </aside>
+
     <main>
       <div class="page-heading">
         <div>
           <h1>Customer Directory</h1>
-          <p class="subtitle">Search and filter Hope, Inc. customer accounts by name, code, address, payment term, and status.</p>
+          <p class="subtitle">Search, filter, create, and edit Hope, Inc. customer accounts.</p>
         </div>
-        <span class="role-badge" id="role-badge">Checking role...</span>
+        <div class="heading-actions">
+          <button class="btn-primary" id="new-customer-btn" type="button" hidden>Add Customer</button>
+          <span class="role-badge" id="role-badge">Checking role...</span>
+        </div>
       </div>
 
       <section class="stat-grid" aria-label="Customer summary">
@@ -111,6 +135,41 @@
         <div class="stat-card"><span class="stat-label">45D Term</span><span class="stat-value" id="stat-45d">0</span></div>
       </section>
 
+      <section class="panel form-panel" id="customer-form-panel" aria-label="Customer form">
+        <div class="form-header">
+          <h2 id="form-title">Add Customer</h2>
+          <button class="btn-secondary" id="close-form-btn" type="button">Cancel</button>
+        </div>
+        <form id="customer-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="field-custno">Customer No.</label>
+              <input id="field-custno" name="custno" type="text" maxlength="5" placeholder="Auto-generated (e.g. C0030)" />
+              <span class="field-hint" id="custno-hint">Leave blank to auto-assign the next customer number.</span>
+            </div>
+            <div class="field">
+              <label for="field-payterm">Payment Term</label>
+              <select id="field-payterm" name="payterm" required>
+                <option value="COD">COD</option>
+                <option value="30D">30D</option>
+                <option value="45D">45D</option>
+              </select>
+            </div>
+            <div class="field full">
+              <label for="field-custname">Customer Name</label>
+              <input id="field-custname" name="custname" type="text" maxlength="100" required placeholder="Company or contact name" />
+            </div>
+            <div class="field full">
+              <label for="field-address">Address</label>
+              <input id="field-address" name="address" type="text" maxlength="255" required placeholder="Street, city, state, postal code" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" id="cancel-form-btn" type="button">Cancel</button>
+            <button class="btn-primary" id="save-customer-btn" type="submit">Save Customer</button>
+          </div>
+        </form>
+      </section>
       <section class="panel" aria-label="Customer list">
         <div class="toolbar">
           <input id="search-input" type="search" placeholder="Search by customer no., name, or address..." aria-label="Search customers" />
@@ -125,10 +184,10 @@
             <option value="Inactive">Inactive</option>
             <option value="All">All statuses</option>
           </select>
-          <button id="clear-filters" type="button">Reset</button>
+          <button class="btn-secondary" id="clear-filters" type="button">Reset</button>
         </div>
 
-        <div class="error-banner" id="error-banner" role="alert"></div>
+        <div class="status-banner" id="status-banner" role="status" aria-live="polite"></div>
 
         <div class="table-wrap">
           <table>
@@ -139,23 +198,39 @@
                 <th>Address</th>
                 <th>Payment Term</th>
                 <th>Status</th>
+                <th id="actions-header" hidden>Actions</th>
               </tr>
             </thead>
             <tbody id="customers-tbody">
-              <tr><td colspan="5" class="state-box">Loading customers...</td></tr>
+              <tr><td colspan="6" class="state-box">Loading customers...</td></tr>
             </tbody>
           </table>
         </div>
       </section>
     </main>
+
     <script>
       const searchInput = document.getElementById('search-input');
       const paytermFilter = document.getElementById('payterm-filter');
       const statusFilter = document.getElementById('status-filter');
       const clearBtn = document.getElementById('clear-filters');
       const tbody = document.getElementById('customers-tbody');
-      const errorBanner = document.getElementById('error-banner');
+      const statusBanner = document.getElementById('status-banner');
+      const newCustomerBtn = document.getElementById('new-customer-btn');
+      const actionsHeader = document.getElementById('actions-header');
+      const formPanel = document.getElementById('customer-form-panel');
+      const customerForm = document.getElementById('customer-form');
+      const formTitle = document.getElementById('form-title');
+      const fieldCustno = document.getElementById('field-custno');
+      const custnoHint = document.getElementById('custno-hint');
+      const fieldCustname = document.getElementById('field-custname');
+      const fieldAddress = document.getElementById('field-address');
+      const fieldPayterm = document.getElementById('field-payterm');
+      const saveCustomerBtn = document.getElementById('save-customer-btn');
       let searchTimer = null;
+      let currentPermissions = [];
+      let currentCustomers = [];
+      let editingCustno = null;
 
       function escapeHtml(text) {
         return String(text ?? '')
@@ -163,6 +238,47 @@
           .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
 
+      function showBanner(message, type) {
+        statusBanner.textContent = message;
+        statusBanner.className = `status-banner visible ${type}`;
+      }
+
+      function clearBanner() {
+        statusBanner.textContent = '';
+        statusBanner.className = 'status-banner';
+      }
+
+      function openCreateForm() {
+        editingCustno = null;
+        formTitle.textContent = 'Add Customer';
+        saveCustomerBtn.textContent = 'Create Customer';
+        customerForm.reset();
+        fieldCustno.readOnly = false;
+        custnoHint.textContent = 'Leave blank to auto-assign the next customer number.';
+        fieldPayterm.value = '30D';
+        formPanel.classList.add('open');
+        fieldCustname.focus();
+      }
+
+      function openEditForm(customer) {
+        editingCustno = customer.custno;
+        formTitle.textContent = `Edit Customer ${customer.custno}`;
+        saveCustomerBtn.textContent = 'Save Changes';
+        fieldCustno.value = customer.custno;
+        fieldCustno.readOnly = true;
+        custnoHint.textContent = 'Customer number cannot be changed when editing.';
+        fieldCustname.value = customer.custname || '';
+        fieldAddress.value = customer.address || '';
+        fieldPayterm.value = customer.payterm || '30D';
+        formPanel.classList.add('open');
+        fieldCustname.focus();
+      }
+
+      function closeForm() {
+        editingCustno = null;
+        formPanel.classList.remove('open');
+        customerForm.reset();
+      }
       async function loadNavigation() {
         const resp = await fetch('/api/dashboard/modules');
         if (resp.status === 401) { window.location.href = '/login'; return; }
@@ -179,7 +295,6 @@
       }
 
       async function loadCustomers() {
-        errorBanner.classList.remove('visible');
         const params = new URLSearchParams();
         if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
         if (paytermFilter.value) params.set('payterm', paytermFilter.value);
@@ -189,41 +304,97 @@
           if (resp.status === 401) { window.location.href = '/login'; return; }
           const data = await resp.json();
           if (!resp.ok) {
-            errorBanner.textContent = data.message || 'Unable to load customers.';
-            errorBanner.classList.add('visible');
-            tbody.innerHTML = '<tr><td colspan="5" class="state-box">Access denied or error loading customers.</td></tr>';
+            showBanner(data.message || 'Unable to load customers.', 'error');
+            tbody.innerHTML = '<tr><td colspan="6" class="state-box">Access denied or error loading customers.</td></tr>';
             return;
           }
-          const rows = data.customers || [];
-          document.getElementById('stat-total').textContent = rows.length;
-          document.getElementById('stat-cod').textContent = rows.filter((c) => c.payterm === 'COD').length;
-          document.getElementById('stat-30d').textContent = rows.filter((c) => c.payterm === '30D').length;
-          document.getElementById('stat-45d').textContent = rows.filter((c) => c.payterm === '45D').length;
-          if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="state-box">No customers match your current search and filter criteria.</td></tr>';
+          currentPermissions = Array.isArray(data.permissions) ? data.permissions : [];
+          currentCustomers = data.customers || [];
+          const canCreate = currentPermissions.includes('customers.create');
+          const canEdit = currentPermissions.includes('customers.edit');
+          newCustomerBtn.hidden = !canCreate;
+          actionsHeader.hidden = !canEdit;
+          const colSpan = canEdit ? 6 : 5;
+
+          document.getElementById('stat-total').textContent = currentCustomers.length;
+          document.getElementById('stat-cod').textContent = currentCustomers.filter((c) => c.payterm === 'COD').length;
+          document.getElementById('stat-30d').textContent = currentCustomers.filter((c) => c.payterm === '30D').length;
+          document.getElementById('stat-45d').textContent = currentCustomers.filter((c) => c.payterm === '45D').length;
+          if (!currentCustomers.length) {
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="state-box">No customers match your current search and filter criteria.</td></tr>`;
             return;
           }
-          tbody.innerHTML = rows.map((c) => {
+          tbody.innerHTML = currentCustomers.map((c) => {
             const termCls = c.payterm === 'COD' ? 'pill-cod' : c.payterm === '30D' ? 'pill-30d' : 'pill-45d';
             const statusCls = String(c.status).toLowerCase() === 'inactive' ? 'pill-inactive' : 'pill-active';
+            const actionCell = canEdit
+              ? `<td><button class="btn-secondary edit-customer-btn" type="button" data-custno="${escapeHtml(c.custno)}">Edit</button></td>`
+              : '';
             return `<tr>
               <td class="code-cell">${escapeHtml(c.custno)}</td>
               <td>${escapeHtml(c.custname)}</td>
               <td>${escapeHtml(c.address)}</td>
               <td><span class="pill ${termCls}">${escapeHtml(c.payterm)}</span></td>
               <td><span class="pill ${statusCls}">${escapeHtml(c.status)}</span></td>
+              ${actionCell}
             </tr>`;
           }).join('');
         } catch (err) {
-          errorBanner.textContent = 'Network error while fetching customers.';
-          errorBanner.classList.add('visible');
+          showBanner('Network error while fetching customers.', 'error');
         }
       }
 
+      tbody.addEventListener('click', (event) => {
+        const btn = event.target.closest('.edit-customer-btn');
+        if (!btn) return;
+        const found = currentCustomers.find((c) => c.custno === btn.dataset.custno);
+        if (found) openEditForm(found);
+      });
+
+      customerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearBanner();
+        saveCustomerBtn.disabled = true;
+        const payload = {
+          custname: fieldCustname.value.trim(),
+          address: fieldAddress.value.trim(),
+          payterm: fieldPayterm.value
+        };
+        if (!editingCustno && fieldCustno.value.trim()) {
+          payload.custno = fieldCustno.value.trim().toUpperCase();
+        }
+        try {
+          const url = editingCustno
+            ? `/api/customers/${encodeURIComponent(editingCustno)}`
+            : '/api/customers';
+          const method = editingCustno ? 'PUT' : 'POST';
+          const resp = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (!resp.ok) {
+            showBanner(result.message || 'Unable to save customer.', 'error');
+            return;
+          }
+          closeForm();
+          showBanner(result.message || 'Customer saved successfully.', 'success');
+          await loadCustomers();
+        } catch (err) {
+          showBanner('Network error while saving customer.', 'error');
+        } finally {
+          saveCustomerBtn.disabled = false;
+        }
+      });
+
+      newCustomerBtn.addEventListener('click', openCreateForm);
+      document.getElementById('close-form-btn').addEventListener('click', closeForm);
+      document.getElementById('cancel-form-btn').addEventListener('click', closeForm);
       searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadCustomers, 180); });
       paytermFilter.addEventListener('change', loadCustomers);
       statusFilter.addEventListener('change', loadCustomers);
-      clearBtn.addEventListener('click', () => { searchInput.value = ''; paytermFilter.value = ''; statusFilter.value = 'Active'; loadCustomers(); });
+      clearBtn.addEventListener('click', () => { searchInput.value = ''; paytermFilter.value = ''; statusFilter.value = 'Active'; clearBanner(); loadCustomers(); });
       document.getElementById('logout-btn').addEventListener('click', async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/login';

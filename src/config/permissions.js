@@ -55,7 +55,9 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'users.edit',
   'users.block',
   'rights.manage',
-  'customers.view'
+  'customers.view',
+  'customers.create',
+  'customers.edit'
 ];
 
 const DASHBOARD_MODULES = [

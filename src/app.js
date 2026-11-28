@@ -23,6 +23,9 @@ const {
   getSession,
   deleteSession,
   listCustomers,
+  getCustomerByNo,
+  createCustomer,
+  updateCustomer,
   VALID_PAYTERMS
 } = require('./config/db');
 const {
@@ -252,6 +255,89 @@ app.get('/api/customers', requireDelegatedPermission('customers.view'), async (r
   } catch (error) {
     console.error('Unable to load customers:', error.message);
     return res.status(500).json({ message: 'Unable to load customers.' });
+  }
+});
+
+function validateCustomerInput(body, { allowCustNo = false } = {}) {
+  const custno = allowCustNo ? String(body?.custno ?? '').trim().toUpperCase() : '';
+  const custname = String(body?.custname ?? '').trim();
+  const address = String(body?.address ?? '').trim();
+  const payterm = String(body?.payterm ?? '').trim().toUpperCase();
+
+  if (allowCustNo && custno && !/^[A-Z0-9]{2,5}$/.test(custno)) {
+    return { error: 'Customer number must be 2 to 5 letters or numbers (for example C0030).' };
+  }
+  if (!custname) {
+    return { error: 'Customer name is required.' };
+  }
+  if (custname.length > 100) {
+    return { error: 'Customer name must be 100 characters or fewer.' };
+  }
+  if (!address) {
+    return { error: 'Customer address is required.' };
+  }
+  if (address.length > 255) {
+    return { error: 'Customer address must be 255 characters or fewer.' };
+  }
+  if (!VALID_PAYTERMS.includes(payterm)) {
+    return { error: `Payment term must be one of: ${VALID_PAYTERMS.join(', ')}.` };
+  }
+
+  return { data: { custno, custname, address, payterm } };
+}
+
+app.get('/api/customers/:custno', requireDelegatedPermission('customers.view'), async (req, res) => {
+  try {
+    const customer = await getCustomerByNo(req.params.custno);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({ customer });
+  } catch (error) {
+    console.error('Unable to load customer:', error.message);
+    return res.status(500).json({ message: 'Unable to load customer.' });
+  }
+});
+
+app.post('/api/customers', requireDelegatedPermission('customers.create'), async (req, res) => {
+  const validation = validateCustomerInput(req.body, { allowCustNo: true });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const customer = await createCustomer(validation.data);
+    return res.status(201).json({
+      message: 'Customer created successfully.',
+      customer
+    });
+  } catch (error) {
+    if (error.code === 'DUPLICATE_CUSTOMER') {
+      return res.status(409).json({ message: error.message });
+    }
+    console.error('Unable to create customer:', error.message);
+    return res.status(500).json({ message: 'Unable to create customer.' });
+  }
+});
+
+app.put('/api/customers/:custno', requireDelegatedPermission('customers.edit'), async (req, res) => {
+  const validation = validateCustomerInput(req.body, { allowCustNo: false });
+  if (validation.error) {
+    return res.status(400).json({ message: validation.error });
+  }
+
+  try {
+    const customer = await updateCustomer(req.params.custno, validation.data);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found.' });
+    }
+    return res.json({
+      message: 'Customer updated successfully.',
+      customer
+    });
+  } catch (error) {
+    console.error('Unable to update customer:', error.message);
+    return res.status(500).json({ message: 'Unable to update customer.' });
   }
 });
 

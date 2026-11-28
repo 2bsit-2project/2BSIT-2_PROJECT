@@ -876,6 +876,124 @@ async function listCustomers({ search = '', payterm = '', status = 'Active' } = 
     .map((customer) => ({ ...customer }));
 }
 
+function normalizeCustNo(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function nextCustomerCode(existingCodes) {
+  let maxNumber = 0;
+  for (const code of existingCodes) {
+    const match = /^C(\d+)$/i.exec(String(code || '').trim());
+    if (match) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (parsed > maxNumber) {
+        maxNumber = parsed;
+      }
+    }
+  }
+  return `C${String(maxNumber + 1).padStart(4, '0')}`;
+}
+
+async function getCustomerByNo(custno) {
+  const normalizedCode = normalizeCustNo(custno);
+  if (!normalizedCode) {
+    return null;
+  }
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `SELECT custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp
+       FROM customer
+       WHERE UPPER(custno) = $1
+       LIMIT 1`,
+      [normalizedCode]
+    );
+    return result.rows[0] ? customerRowToRecord(result.rows[0]) : null;
+  }
+
+  const found = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  return found ? { ...found } : null;
+}
+
+async function createCustomer({ custno = '', custname, address, payterm }) {
+  const normalizedName = String(custname || '').trim();
+  const normalizedAddress = String(address || '').trim();
+  const normalizedPayterm = String(payterm || '').trim().toUpperCase();
+  let normalizedCode = normalizeCustNo(custno);
+
+  if (dbStatus === 'connected') {
+    if (!normalizedCode) {
+      const existing = await pool.query('SELECT custno FROM customer');
+      normalizedCode = nextCustomerCode(existing.rows.map((row) => row.custno));
+    }
+    try {
+      const result = await pool.query(
+        `INSERT INTO customer (custno, custname, address, payterm, status, stamp)
+         VALUES ($1, $2, $3, $4, 'Active', NOW())
+         RETURNING custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp`,
+        [normalizedCode, normalizedName, normalizedAddress, normalizedPayterm]
+      );
+      return customerRowToRecord(result.rows[0]);
+    } catch (error) {
+      if (error.code === '23505') {
+        const duplicateError = new Error(`Customer number ${normalizedCode} already exists.`);
+        duplicateError.code = 'DUPLICATE_CUSTOMER';
+        throw duplicateError;
+      }
+      throw error;
+    }
+  }
+
+  if (!normalizedCode) {
+    normalizedCode = nextCustomerCode(inMemoryCustomers.map((item) => item.custno));
+  }
+  const duplicate = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  if (duplicate) {
+    const duplicateError = new Error(`Customer number ${normalizedCode} already exists.`);
+    duplicateError.code = 'DUPLICATE_CUSTOMER';
+    throw duplicateError;
+  }
+
+  const record = {
+    custno: normalizedCode,
+    custname: normalizedName,
+    address: normalizedAddress,
+    payterm: normalizedPayterm,
+    status: 'Active',
+    stamp: new Date().toISOString()
+  };
+  inMemoryCustomers.push(record);
+  return { ...record };
+}
+
+async function updateCustomer(custno, { custname, address, payterm }) {
+  const normalizedCode = normalizeCustNo(custno);
+  const normalizedName = String(custname || '').trim();
+  const normalizedAddress = String(address || '').trim();
+  const normalizedPayterm = String(payterm || '').trim().toUpperCase();
+
+  if (dbStatus === 'connected') {
+    const result = await pool.query(
+      `UPDATE customer
+       SET custname = $1, address = $2, payterm = $3, stamp = NOW()
+       WHERE UPPER(custno) = $4
+       RETURNING custno, custname, address, payterm, COALESCE(status, 'Active') AS status, stamp`,
+      [normalizedName, normalizedAddress, normalizedPayterm, normalizedCode]
+    );
+    return result.rows[0] ? customerRowToRecord(result.rows[0]) : null;
+  }
+
+  const customer = inMemoryCustomers.find((item) => normalizeCustNo(item.custno) === normalizedCode);
+  if (!customer) {
+    return null;
+  }
+  customer.custname = normalizedName;
+  customer.address = normalizedAddress;
+  customer.payterm = normalizedPayterm;
+  customer.stamp = new Date().toISOString();
+  return { ...customer };
+}
+
 module.exports = {
   pool,
   connectDatabase,
@@ -902,5 +1020,8 @@ module.exports = {
   setUserRole,
   setUserPermissions,
   listCustomers,
+  getCustomerByNo,
+  createCustomer,
+  updateCustomer,
   VALID_PAYTERMS
 };
