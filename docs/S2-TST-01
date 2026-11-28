@@ -1,0 +1,29 @@
+Sprint 2 Test Cases: Customer Module
+
+Task: S2-TST-01
+Project: Hope, Inc. ERP
+
+1. Test Cases: Customer List, Search & Filter
+- TC-CUST-01: Open the Customer Management page as an authorized user -> Active customer records load in the table with customer number, name, address, payment terms, and status.
+- TC-CUST-02: Type an existing customer name or customer number (`custno`) in the search bar -> Table filters to show only matching customers.
+- TC-CUST-03: Search for a keyword with no matching record -> Empty state message is shown cleanly with no errors.
+- TC-CUST-04: Filter customers by payment terms (`COD`, `30D`, `45D`) or status (Active / Inactive) -> List updates to display only matching records.
+
+2. Test Cases: Create Customer
+- TC-CUST-05: Click "+ Add Customer" and submit valid details (`custno`, `custname`, `address`, `payterm` = `COD` / `30D` / `45D`) -> Customer is saved as active, appears in the list, and logs the audit stamp.
+- TC-CUST-06: Submit the form with required fields blank (e.g., missing `custno` or `custname`) -> Validation error is displayed and saving is blocked.
+- TC-CUST-07: Submit a duplicate `custno` that already exists -> System rejects the request and shows a duplicate customer error.
+- TC-CUST-08: Submit an invalid `payterm` value (anything other than `COD`, `30D`, or `45D`) -> Validation blocks the save and returns an error.
+
+3. Test Cases: Edit Customer
+- TC-CUST-09: Click "Edit" on an existing customer, update `custname`, `address`, or `payterm`, and save -> Updated values persist in the database, reflect in the table, and update the audit stamp.
+- TC-CUST-10: Clear a required field while editing and click Save -> Validation error appears and changes are not saved.
+
+4. Test Cases: Soft Delete & Restore
+- TC-CUST-11: Click "Delete" on an active customer with no blocking child records and confirm -> Customer is soft-deleted (marked inactive) rather than permanently removed, and the audit stamp is updated.
+- TC-CUST-12: Attempt to delete a customer linked to existing sales records -> Child-record check prevents unsafe hard deletion and displays the expected warning or soft-delete behavior without breaking `sales` history.
+- TC-CUST-13: Click "Restore" on an inactive (soft-deleted) customer -> Customer status returns to active and reappears in the active customer list.
+
+5. Test Cases: Role & Permission Checks
+- TC-CUST-14: Access the Customer module as a regular User without customer permissions -> Restricted actions (Add, Edit, Delete, Restore) are hidden and direct API requests return `403 Forbidden`.
+- TC-CUST-15: View the Customer list as an Admin/Superadmin vs. a regular User -> Admins/Superadmins can view inactive/soft-deleted rows and audit columns, while regular Users only see active records.
